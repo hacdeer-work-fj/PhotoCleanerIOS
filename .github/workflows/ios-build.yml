@@ -61,6 +61,38 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             test
 
+      - name: Build unsigned device app
+        run: |
+          xcodebuild \
+            -project PhotoCleaner.xcodeproj \
+            -scheme PhotoCleaner \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            -derivedDataPath "$RUNNER_TEMP/UnsignedDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package unsigned IPA
+        run: |
+          APP_PATH=$(find "$RUNNER_TEMP/UnsignedDerivedData/Build/Products/Release-iphoneos" -maxdepth 1 -name "*.app" -print -quit)
+          if [ -z "$APP_PATH" ]; then
+            echo "Unsigned app was not found"
+            find "$RUNNER_TEMP/UnsignedDerivedData/Build/Products" -maxdepth 3 -print
+            exit 1
+          fi
+
+          IPA_DIR="$RUNNER_TEMP/unsigned-ipa"
+          mkdir -p "$IPA_DIR/Payload"
+          cp -R "$APP_PATH" "$IPA_DIR/Payload/"
+          (cd "$IPA_DIR" && zip -qry "$RUNNER_TEMP/PhotoCleaner-unsigned.ipa" Payload)
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhotoCleaner-unsigned-IPA
+          path: ${{ runner.temp }}/PhotoCleaner-unsigned.ipa
+
       - name: Import signing assets
         if: ${{ env.BUILD_CERTIFICATE_BASE64 != '' && env.PROVISION_PROFILE_BASE64 != '' && env.APPLE_TEAM_ID != '' }}
         run: |
