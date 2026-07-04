@@ -5,8 +5,13 @@ on:
     branches:
       - main
       - master
+    tags:
+      - "v*"
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -92,6 +97,17 @@ jobs:
         with:
           name: PhotoCleaner-unsigned-IPA
           path: ${{ runner.temp }}/PhotoCleaner-unsigned.ipa
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: PhotoCleaner ${{ github.ref_name }}
+          body: |
+            Unsigned IPA build for PhotoCleaner.
+
+            This IPA is not signed. It is intended for sideloading or later re-signing.
+          files: ${{ runner.temp }}/PhotoCleaner-unsigned.ipa
 
       - name: Import signing assets
         if: ${{ env.BUILD_CERTIFICATE_BASE64 != '' && env.PROVISION_PROFILE_BASE64 != '' && env.APPLE_TEAM_ID != '' }}
