@@ -169,7 +169,7 @@ struct ThumbnailStrip: View {
                                 }
                         }
                         .buttonStyle(.plain)
-                        .id(index)
+                        .id(item.id)
                     }
                 }
                 .padding(.horizontal)
@@ -177,8 +177,10 @@ struct ThumbnailStrip: View {
             }
             .frame(height: 70)
             .onChange(of: viewModel.currentIndex) { newIndex in
+                guard viewModel.visibleItems.indices.contains(newIndex) else { return }
+
                 withAnimation(.easeInOut(duration: 0.18)) {
-                    proxy.scrollTo(newIndex, anchor: .center)
+                    proxy.scrollTo(viewModel.visibleItems[newIndex].id, anchor: .center)
                 }
             }
         }

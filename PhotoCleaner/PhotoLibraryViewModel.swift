@@ -102,15 +102,21 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
 
     func moveCurrentPhotoToTrash() {
         guard visibleItems.indices.contains(currentIndex) else { return }
-        let removedItem = visibleItems.remove(at: currentIndex)
+        var updatedVisibleItems = visibleItems
+        var updatedTrashItems = trashItems
+        let removedItem = updatedVisibleItems.remove(at: currentIndex)
+
         trashIDs.insert(removedItem.id)
-        trashItems.insert(removedItem, at: 0)
+        updatedTrashItems.insert(removedItem, at: 0)
         trashStore.save(trashIDs)
 
-        if visibleItems.isEmpty {
+        visibleItems = updatedVisibleItems
+        trashItems = updatedTrashItems
+
+        if updatedVisibleItems.isEmpty {
             currentIndex = 0
         } else {
-            currentIndex = min(currentIndex, visibleItems.count - 1)
+            currentIndex = min(currentIndex, updatedVisibleItems.count - 1)
         }
     }
 
