@@ -13,8 +13,7 @@ struct ContentView: View {
                 Color(.systemBackground).ignoresSafeArea()
                 content
             }
-            .navigationTitle("照片快清")
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showingTrash) {
                 TrashView(
                     viewModel: viewModel,

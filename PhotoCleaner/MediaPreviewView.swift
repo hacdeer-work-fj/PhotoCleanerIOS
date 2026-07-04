@@ -35,13 +35,15 @@ struct PhotoOrGIFPreviewView: View {
                 PhotoImageView(item: item, contentMode: .fit, viewModel: viewModel)
             }
 
-            Label("GIF", systemImage: "repeat")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .background(.black.opacity(0.42), in: Capsule())
-                .padding(10)
+            if gifData != nil {
+                Label("GIF", systemImage: "repeat")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(.black.opacity(0.42), in: Capsule())
+                    .padding(10)
+            }
         }
         .onAppear {
             loadGIFDataIfNeeded()

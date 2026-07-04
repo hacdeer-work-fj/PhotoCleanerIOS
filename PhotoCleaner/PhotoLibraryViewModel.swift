@@ -293,6 +293,11 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
         photoInfo = nil
         isLoadingPhotoInfo = true
 
+        if item.asset.mediaType == .video {
+            loadVideoInfo(for: item)
+            return
+        }
+
         let resource = PHAssetResource.assetResources(for: item.asset).first
         let resourceFilename = resource?.originalFilename
         let uti = resource?.uniformTypeIdentifier
@@ -332,6 +337,52 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
                 location: locationText,
                 coordinate: coordinate,
                 exifRows: exifRows
+            )
+
+            DispatchQueue.main.async {
+                guard self.infoItem?.id == item.id else { return }
+                self.photoInfo = info
+                self.isLoadingPhotoInfo = false
+            }
+        }
+    }
+
+    private func loadVideoInfo(for item: PhotoItem) {
+        let resource = PHAssetResource.assetResources(for: item.asset).first
+        let resourceFilename = resource?.originalFilename
+        let uti = resource?.uniformTypeIdentifier
+        let format = uti.flatMap { UTType($0)?.preferredFilenameExtension?.uppercased() } ?? "未知"
+        let createdText = item.asset.creationDate.map { dateFormatter.string(from: $0) } ?? "未知"
+        let modifiedText = item.asset.modificationDate.map { dateFormatter.string(from: $0) } ?? "未知"
+        let coordinate = item.asset.location?.coordinate
+        let locationText = coordinate.map {
+            String(format: "%.5f, %.5f", $0.latitude, $0.longitude)
+        } ?? "无"
+
+        let options = PHVideoRequestOptions()
+        options.deliveryMode = .automatic
+        options.isNetworkAccessAllowed = true
+
+        imageManager.requestAVAsset(forVideo: item.asset, options: options) { [weak self] asset, _, _ in
+            guard let self else { return }
+
+            var fileSizeText = "未知"
+            if let urlAsset = asset as? AVURLAsset,
+               let values = try? urlAsset.url.resourceValues(forKeys: [.fileSizeKey]),
+               let fileSize = values.fileSize {
+                fileSizeText = self.byteFormatter.string(fromByteCount: Int64(fileSize))
+            }
+
+            let info = PhotoInfo(
+                filename: resourceFilename ?? "未知",
+                format: format,
+                fileSize: fileSizeText,
+                dimensions: "\(item.asset.pixelWidth) x \(item.asset.pixelHeight)",
+                created: createdText,
+                modified: modifiedText,
+                location: locationText,
+                coordinate: coordinate,
+                exifRows: []
             )
 
             DispatchQueue.main.async {

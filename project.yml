@@ -7,8 +7,8 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
     IPHONEOS_DEPLOYMENT_TARGET: "16.0"
-    MARKETING_VERSION: "1.11"
-    CURRENT_PROJECT_VERSION: "12"
+    MARKETING_VERSION: "1.12"
+    CURRENT_PROJECT_VERSION: "13"
 targets:
   PhotoCleaner:
     type: application
