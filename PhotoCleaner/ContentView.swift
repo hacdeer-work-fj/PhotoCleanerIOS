@@ -14,16 +14,6 @@ struct ContentView: View {
             }
             .navigationTitle("照片快清")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showingTrash = true
-                    } label: {
-                        Label("回收站", systemImage: "trash")
-                    }
-                    .disabled(!viewModel.hasPhotoAccess)
-                }
-            }
             .sheet(isPresented: $showingTrash) {
                 TrashView(
                     viewModel: viewModel,
@@ -100,7 +90,23 @@ struct PhotoBrowserView: View {
                     .padding(.bottom, 8)
             }
 
+            BottomControls(viewModel: viewModel, showingTrash: $showingTrash)
+        }
+    }
+}
+
+struct BottomControls: View {
+    @ObservedObject var viewModel: PhotoLibraryViewModel
+    @Binding var showingTrash: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
             Divider()
+
+            if !viewModel.visibleItems.isEmpty {
+                ThumbnailStrip(viewModel: viewModel)
+                    .padding(.top, 10)
+            }
 
             HStack(spacing: 12) {
                 Button(role: .destructive) {
@@ -122,7 +128,45 @@ struct PhotoBrowserView: View {
             }
             .controlSize(.large)
             .padding()
-            .background(.bar)
+        }
+        .background(.bar)
+    }
+}
+
+struct ThumbnailStrip: View {
+    @ObservedObject var viewModel: PhotoLibraryViewModel
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(viewModel.visibleItems.enumerated()), id: \.element.id) { index, item in
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                viewModel.currentIndex = index
+                            }
+                        } label: {
+                            PhotoImageView(item: item, contentMode: .fill, viewModel: viewModel)
+                                .frame(width: 58, height: 58)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(index == viewModel.currentIndex ? Color.accentColor : Color.white.opacity(0.35), lineWidth: index == viewModel.currentIndex ? 3 : 1)
+                                }
+                        }
+                        .buttonStyle(.plain)
+                        .id(index)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 2)
+            }
+            .frame(height: 70)
+            .onChange(of: viewModel.currentIndex) { newIndex in
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    proxy.scrollTo(newIndex, anchor: .center)
+                }
+            }
         }
     }
 }
