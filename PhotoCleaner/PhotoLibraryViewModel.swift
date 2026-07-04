@@ -159,6 +159,15 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
 
     func permanentlyDeleteSelectedTrashItems() {
         let ids = selectedTrashIDs
+        permanentlyDeleteTrashItems(with: ids)
+    }
+
+    func permanentlyDeleteAllTrashItems() {
+        let ids = Set(trashItems.map(\.id))
+        permanentlyDeleteTrashItems(with: ids)
+    }
+
+    private func permanentlyDeleteTrashItems(with ids: Set<String>) {
         guard !ids.isEmpty else { return }
         isBusy = true
 
@@ -172,7 +181,7 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
 
                 if success {
                     self.trashIDs.subtract(ids)
-                    self.selectedTrashIDs.removeAll()
+                    self.selectedTrashIDs.subtract(ids)
                     self.trashStore.save(self.trashIDs)
                     self.loadPhotos()
                 } else {

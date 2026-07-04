@@ -121,6 +121,15 @@ struct TrashActionBar: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(viewModel.selectedTrashIDs.isEmpty || viewModel.isBusy)
+
+                Button(role: .destructive) {
+                    viewModel.permanentlyDeleteAllTrashItems()
+                } label: {
+                    Label("清空", systemImage: "trash")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(viewModel.trashItems.isEmpty || viewModel.isBusy)
             }
             .controlSize(.large)
             .padding(.horizontal)
