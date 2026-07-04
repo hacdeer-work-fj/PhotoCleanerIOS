@@ -83,7 +83,11 @@ struct PhotoBrowserView: View {
             } else {
                 TabView(selection: $viewModel.currentIndex) {
                     ForEach(Array(viewModel.visibleItems.enumerated()), id: \.element.id) { index, item in
-                        PhotoImageView(item: item, contentMode: .fit, viewModel: viewModel)
+                        MediaPreviewView(
+                            item: item,
+                            isActive: index == viewModel.currentIndex,
+                            viewModel: viewModel
+                        )
                             .padding(.horizontal, 10)
                             .tag(index)
                             .gesture(
@@ -167,6 +171,9 @@ struct ThumbnailStrip: View {
                                     RoundedRectangle(cornerRadius: 8)
                                         .stroke(index == viewModel.currentIndex ? Color.accentColor : Color.white.opacity(0.35), lineWidth: index == viewModel.currentIndex ? 3 : 1)
                                 }
+                                .overlay(alignment: .topLeading) {
+                                    MediaBadge(kind: item.mediaKind)
+                                }
                         }
                         .buttonStyle(.plain)
                         .id(item.id)
@@ -183,6 +190,31 @@ struct ThumbnailStrip: View {
                     proxy.scrollTo(viewModel.visibleItems[newIndex].id, anchor: .center)
                 }
             }
+        }
+    }
+}
+
+struct MediaBadge: View {
+    let kind: MediaKind
+
+    var body: some View {
+        switch kind {
+        case .photo:
+            EmptyView()
+        case .livePhoto:
+            Image(systemName: "livephoto")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(4)
+                .background(.black.opacity(0.55), in: Circle())
+                .padding(4)
+        case .video:
+            Image(systemName: "play.fill")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(5)
+                .background(.black.opacity(0.55), in: Circle())
+                .padding(4)
         }
     }
 }

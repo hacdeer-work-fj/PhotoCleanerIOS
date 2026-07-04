@@ -1,5 +1,6 @@
 import Foundation
 import ImageIO
+import AVFoundation
 import Photos
 import SwiftUI
 import UniformTypeIdentifiers
@@ -7,6 +8,18 @@ import UniformTypeIdentifiers
 struct PhotoItem: Identifiable {
     let id: String
     let asset: PHAsset
+
+    var mediaKind: MediaKind {
+        if asset.mediaType == .video {
+            return .video
+        }
+
+        if asset.mediaSubtypes.contains(.photoLive) {
+            return .livePhoto
+        }
+
+        return .photo
+    }
 }
 
 final class PhotoLibraryViewModel: NSObject, ObservableObject {
@@ -83,7 +96,11 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
     func loadPhotos() {
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        options.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+        options.predicate = NSPredicate(
+            format: "mediaType == %d OR mediaType == %d",
+            PHAssetMediaType.image.rawValue,
+            PHAssetMediaType.video.rawValue
+        )
 
         let result = PHAsset.fetchAssets(with: options)
         var items: [PhotoItem] = []
@@ -208,6 +225,37 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
         }
     }
 
+    func requestLivePhoto(for item: PhotoItem, targetSize: CGSize, completion: @escaping (PHLivePhoto?) -> Void) {
+        let scale = UIScreen.main.scale
+        let pixelSize = CGSize(
+            width: max(targetSize.width * scale, 300),
+            height: max(targetSize.height * scale, 300)
+        )
+
+        let options = PHLivePhotoRequestOptions()
+        options.deliveryMode = .opportunistic
+        options.isNetworkAccessAllowed = true
+
+        imageManager.requestLivePhoto(
+            for: item.asset,
+            targetSize: pixelSize,
+            contentMode: .aspectFit,
+            options: options
+        ) { livePhoto, _ in
+            completion(livePhoto)
+        }
+    }
+
+    func requestPlayerItem(for item: PhotoItem, completion: @escaping (AVPlayerItem?) -> Void) {
+        let options = PHVideoRequestOptions()
+        options.deliveryMode = .automatic
+        options.isNetworkAccessAllowed = true
+
+        imageManager.requestPlayerItem(forVideo: item.asset, options: options) { playerItem, _ in
+            completion(playerItem)
+        }
+    }
+
     private func configureCaches() {
         previewCache.countLimit = 12
         thumbnailCache.countLimit = 400
@@ -318,6 +366,12 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
 enum PhotoImageRequestMode: String {
     case preview
     case thumbnail
+}
+
+enum MediaKind {
+    case photo
+    case livePhoto
+    case video
 }
 
 struct PhotoInfo {
