@@ -20,6 +20,12 @@ struct ContentView: View {
                     confirmingPermanentDelete: $confirmingPermanentDelete
                 )
             }
+            .sheet(item: $viewModel.infoItem, onDismiss: {
+                viewModel.clearInfo()
+            }) { item in
+                PhotoInfoView(item: item, viewModel: viewModel)
+                    .presentationDetents([.medium, .large])
+            }
             .confirmationDialog(
                 "永久删除选中的照片？",
                 isPresented: $confirmingPermanentDelete,
@@ -80,9 +86,17 @@ struct PhotoBrowserView: View {
                         PhotoImageView(item: item, contentMode: .fit, viewModel: viewModel)
                             .padding(.horizontal, 10)
                             .tag(index)
+                            .gesture(
+                                DragGesture(minimumDistance: 28)
+                                    .onEnded { value in
+                                        if value.translation.height < -70 && abs(value.translation.width) < 80 {
+                                            viewModel.showInfo(for: item)
+                                        }
+                                    }
+                            )
                     }
                 }
-                .tabViewStyle(.page(indexDisplayMode: .automatic))
+                .tabViewStyle(.page(indexDisplayMode: .never))
 
                 Text("\(viewModel.currentIndex + 1) / \(viewModel.visibleItems.count)")
                     .font(.footnote)
@@ -200,5 +214,76 @@ struct EmptyStateView: View {
                 .padding(.horizontal, 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct PhotoInfoView: View {
+    let item: PhotoItem
+    @ObservedObject var viewModel: PhotoLibraryViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if viewModel.isLoadingPhotoInfo {
+                    ProgressView("正在读取照片信息")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let info = viewModel.photoInfo {
+                    List {
+                        Section("文件") {
+                            InfoRow(title: "文件名", value: info.filename)
+                            InfoRow(title: "格式", value: info.format)
+                            InfoRow(title: "大小", value: info.fileSize)
+                            InfoRow(title: "尺寸", value: info.dimensions)
+                        }
+
+                        Section("时间和位置") {
+                            InfoRow(title: "创建时间", value: info.created)
+                            InfoRow(title: "修改时间", value: info.modified)
+                            InfoRow(title: "位置", value: info.location)
+                        }
+
+                        if !info.exifRows.isEmpty {
+                            Section("EXIF") {
+                                ForEach(info.exifRows) { row in
+                                    InfoRow(title: row.title, value: row.value)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    EmptyStateView(
+                        title: "没有读取到信息",
+                        systemImage: "info.circle",
+                        message: "这张照片没有可显示的文件或 EXIF 信息。"
+                    )
+                }
+            }
+            .navigationTitle("照片信息")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("关闭") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct InfoRow: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            Text(title)
+                .foregroundStyle(.secondary)
+                .frame(width: 78, alignment: .leading)
+            Text(value)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
+        }
     }
 }
