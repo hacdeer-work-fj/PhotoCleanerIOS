@@ -11,10 +11,6 @@ struct PhotoItem: Identifiable {
     let asset: PHAsset
 
     var mediaKind: MediaKind {
-        if isGIF {
-            return .gif
-        }
-
         if asset.mediaType == .video {
             return .video
         }
@@ -24,14 +20,6 @@ struct PhotoItem: Identifiable {
         }
 
         return .photo
-    }
-
-    var isGIF: Bool {
-        PHAssetResource.assetResources(for: asset).contains { resource in
-            let uti = resource.uniformTypeIdentifier.lowercased()
-            let filename = resource.originalFilename.lowercased()
-            return uti == "com.compuserve.gif" || filename.hasSuffix(".gif")
-        }
     }
 }
 
@@ -411,7 +399,6 @@ enum PhotoImageRequestMode: String {
 
 enum MediaKind {
     case photo
-    case gif
     case livePhoto
     case video
 }
