@@ -1,6 +1,7 @@
 import Foundation
 import ImageIO
 import AVFoundation
+import CoreLocation
 import Photos
 import SwiftUI
 import UniformTypeIdentifiers
@@ -290,8 +291,9 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
 
             let createdText = item.asset.creationDate.map { self.dateFormatter.string(from: $0) } ?? "未知"
             let modifiedText = item.asset.modificationDate.map { self.dateFormatter.string(from: $0) } ?? "未知"
-            let locationText = item.asset.location.map {
-                String(format: "%.5f, %.5f", $0.coordinate.latitude, $0.coordinate.longitude)
+            let coordinate = item.asset.location?.coordinate
+            let locationText = coordinate.map {
+                String(format: "%.5f, %.5f", $0.latitude, $0.longitude)
             } ?? "无"
 
             let info = PhotoInfo(
@@ -302,6 +304,7 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
                 created: createdText,
                 modified: modifiedText,
                 location: locationText,
+                coordinate: coordinate,
                 exifRows: exifRows
             )
 
@@ -382,6 +385,7 @@ struct PhotoInfo {
     let created: String
     let modified: String
     let location: String
+    let coordinate: CLLocationCoordinate2D?
     let exifRows: [PhotoInfoRow]
 }
 

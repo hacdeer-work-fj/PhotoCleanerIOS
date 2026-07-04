@@ -1,4 +1,5 @@
 import Photos
+import MapKit
 import SwiftUI
 
 struct ContentView: View {
@@ -275,6 +276,10 @@ struct PhotoInfoView: View {
                             InfoRow(title: "创建时间", value: info.created)
                             InfoRow(title: "修改时间", value: info.modified)
                             InfoRow(title: "位置", value: info.location)
+
+                            if let coordinate = info.coordinate {
+                                PhotoLocationMapView(coordinate: coordinate)
+                            }
                         }
 
                         if !info.exifRows.isEmpty {
@@ -320,4 +325,57 @@ struct InfoRow: View {
                 .textSelection(.enabled)
         }
     }
+}
+
+struct PhotoLocationMapView: View {
+    let coordinate: CLLocationCoordinate2D
+    @State private var region: MKCoordinateRegion
+
+    init(coordinate: CLLocationCoordinate2D) {
+        self.coordinate = coordinate
+        self._region = State(initialValue: MKCoordinateRegion(
+            center: coordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+        ))
+    }
+
+    var body: some View {
+        Button {
+            openInMaps()
+        } label: {
+            ZStack(alignment: .bottomTrailing) {
+                Map(coordinateRegion: $region, annotationItems: [PhotoMapPin(coordinate: coordinate)]) { pin in
+                    MapMarker(coordinate: pin.coordinate, tint: .red)
+                }
+                .allowsHitTesting(false)
+                .frame(height: 160)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                Label("打开地图", systemImage: "map")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.black.opacity(0.55), in: Capsule())
+                    .padding(10)
+            }
+        }
+        .buttonStyle(.plain)
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+    }
+
+    private func openInMaps() {
+        let placemark = MKPlacemark(coordinate: coordinate)
+        let item = MKMapItem(placemark: placemark)
+        item.name = "照片位置"
+        item.openInMaps(launchOptions: [
+            MKLaunchOptionsMapCenterKey: NSValue(mkCoordinate: coordinate),
+            MKLaunchOptionsMapSpanKey: NSValue(mkCoordinateSpan: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+        ])
+    }
+}
+
+struct PhotoMapPin: Identifiable {
+    let id = UUID()
+    let coordinate: CLLocationCoordinate2D
 }
