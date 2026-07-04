@@ -1,12 +1,14 @@
 name: PhotoCleaner
 options:
-  bundleIdPrefix: com.example
+  bundleIdPrefix: com.hacdeer
   deploymentTarget:
     iOS: "16.0"
 settings:
   base:
     SWIFT_VERSION: "5.9"
     IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "4"
 targets:
   PhotoCleaner:
     type: application
@@ -19,7 +21,7 @@ targets:
       - PhotoCleaner/Assets.xcassets
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.photocleaner
+        PRODUCT_BUNDLE_IDENTIFIER: com.hacdeer.photocleaner
         INFOPLIST_FILE: PhotoCleaner/Info.plist
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTS_MACCATALYST: "NO"
@@ -37,5 +39,5 @@ targets:
       - target: PhotoCleaner
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.photocleaner.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.hacdeer.photocleaner.tests
         INFOPLIST_FILE: PhotoCleanerTests/Info.plist
