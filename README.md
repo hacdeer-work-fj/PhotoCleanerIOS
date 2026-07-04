@@ -2,6 +2,8 @@
 
 照片快清是一个原生 SwiftUI iPhone App，用来更快地浏览、筛选和清理相册内容。项目可以在 Windows 上维护源码，并通过 GitHub Actions 免费 macOS runner 自动构建 unsigned IPA。
 
+//暂时不再更新。。。
+
 ## 主要功能
 
 - 请求系统相册权限，读取照片、实况照片和视频。
