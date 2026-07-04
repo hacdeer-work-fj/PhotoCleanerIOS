@@ -18,6 +18,8 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
     @Published var alertMessage: String?
 
     private let imageManager = PHCachingImageManager()
+    private let previewCache = NSCache<NSString, UIImage>()
+    private let thumbnailCache = NSCache<NSString, UIImage>()
     private let trashStore: TrashStore
     private var trashIDs: Set<String>
 
@@ -26,6 +28,7 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
         self.trashStore = TrashStore()
         self.trashIDs = trashStore.load()
         super.init()
+        configureCaches()
     }
 
     init(trashStore: TrashStore) {
@@ -33,6 +36,7 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
         self.trashStore = trashStore
         self.trashIDs = trashStore.load()
         super.init()
+        configureCaches()
     }
 
     var hasPhotoAccess: Bool {
@@ -86,10 +90,16 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
 
     func moveCurrentPhotoToTrash() {
         guard visibleItems.indices.contains(currentIndex) else { return }
-        let id = visibleItems[currentIndex].id
-        trashIDs.insert(id)
+        let removedItem = visibleItems.remove(at: currentIndex)
+        trashIDs.insert(removedItem.id)
+        trashItems.insert(removedItem, at: 0)
         trashStore.save(trashIDs)
-        rebuildLists()
+
+        if visibleItems.isEmpty {
+            currentIndex = 0
+        } else {
+            currentIndex = min(currentIndex, visibleItems.count - 1)
+        }
     }
 
     func restoreSelectedTrashItems() {
@@ -136,23 +146,42 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
         }
     }
 
-    func requestImage(for item: PhotoItem, targetSize: CGSize, completion: @escaping (UIImage?) -> Void) {
+    func requestImage(for item: PhotoItem, targetSize: CGSize, mode: PhotoImageRequestMode, completion: @escaping (UIImage?) -> Void) {
         let scale = UIScreen.main.scale
-        let pixelSize = CGSize(width: max(targetSize.width * scale, 300), height: max(targetSize.height * scale, 300))
+        let minimumPixelSize = mode == .thumbnail ? 120.0 : 300.0
+        let pixelSize = CGSize(
+            width: max(targetSize.width * scale, minimumPixelSize),
+            height: max(targetSize.height * scale, minimumPixelSize)
+        )
+        let cacheKey = "\(item.id)-\(Int(pixelSize.width))x\(Int(pixelSize.height))-\(mode.rawValue)" as NSString
+        let cache = mode == .thumbnail ? thumbnailCache : previewCache
+
+        if let cachedImage = cache.object(forKey: cacheKey) {
+            completion(cachedImage)
+            return
+        }
 
         let options = PHImageRequestOptions()
-        options.deliveryMode = .highQualityFormat
+        options.deliveryMode = mode == .thumbnail ? .fastFormat : .highQualityFormat
         options.resizeMode = .fast
         options.isNetworkAccessAllowed = true
 
         imageManager.requestImage(
             for: item.asset,
             targetSize: pixelSize,
-            contentMode: .aspectFit,
+            contentMode: mode == .thumbnail ? .aspectFill : .aspectFit,
             options: options
         ) { image, _ in
+            if let image {
+                cache.setObject(image, forKey: cacheKey)
+            }
             completion(image)
         }
+    }
+
+    private func configureCaches() {
+        previewCache.countLimit = 12
+        thumbnailCache.countLimit = 400
     }
 
     private func rebuildLists() {
@@ -166,4 +195,9 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
             currentIndex = min(currentIndex, visibleItems.count - 1)
         }
     }
+}
+
+enum PhotoImageRequestMode: String {
+    case preview
+    case thumbnail
 }

@@ -4,8 +4,16 @@ import SwiftUI
 struct PhotoImageView: View {
     let item: PhotoItem
     let contentMode: ContentMode
+    let requestMode: PhotoImageRequestMode
     @ObservedObject var viewModel: PhotoLibraryViewModel
     @State private var image: UIImage?
+
+    init(item: PhotoItem, contentMode: ContentMode, requestMode: PhotoImageRequestMode = .preview, viewModel: PhotoLibraryViewModel) {
+        self.item = item
+        self.contentMode = contentMode
+        self.requestMode = requestMode
+        self.viewModel = viewModel
+    }
 
     var body: some View {
         GeometryReader { proxy in
@@ -30,9 +38,11 @@ struct PhotoImageView: View {
     }
 
     private func loadImage(size: CGSize) {
+        let requestedID = item.id
         image = nil
-        viewModel.requestImage(for: item, targetSize: size) { loadedImage in
+        viewModel.requestImage(for: item, targetSize: size, mode: requestMode) { loadedImage in
             DispatchQueue.main.async {
+                guard requestedID == item.id else { return }
                 image = loadedImage
             }
         }

@@ -139,14 +139,14 @@ struct ThumbnailStrip: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                LazyHStack(spacing: 8) {
                     ForEach(Array(viewModel.visibleItems.enumerated()), id: \.element.id) { index, item in
                         Button {
                             withAnimation(.easeInOut(duration: 0.18)) {
                                 viewModel.currentIndex = index
                             }
                         } label: {
-                            PhotoImageView(item: item, contentMode: .fill, viewModel: viewModel)
+                            PhotoImageView(item: item, contentMode: .fill, requestMode: .thumbnail, viewModel: viewModel)
                                 .frame(width: 58, height: 58)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                                 .overlay {
