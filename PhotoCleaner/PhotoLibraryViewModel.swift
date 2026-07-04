@@ -11,6 +11,10 @@ struct PhotoItem: Identifiable {
     let asset: PHAsset
 
     var mediaKind: MediaKind {
+        if isGIF {
+            return .gif
+        }
+
         if asset.mediaType == .video {
             return .video
         }
@@ -20,6 +24,14 @@ struct PhotoItem: Identifiable {
         }
 
         return .photo
+    }
+
+    var isGIF: Bool {
+        PHAssetResource.assetResources(for: asset).contains { resource in
+            let uti = resource.uniformTypeIdentifier.lowercased()
+            let filename = resource.originalFilename.lowercased()
+            return uti == "com.compuserve.gif" || filename.hasSuffix(".gif")
+        }
     }
 }
 
@@ -257,6 +269,32 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
         }
     }
 
+    func requestGIFData(for item: PhotoItem, completion: @escaping (Data?) -> Void) {
+        guard let resource = PHAssetResource.assetResources(for: item.asset).first(where: { resource in
+            let uti = resource.uniformTypeIdentifier.lowercased()
+            let filename = resource.originalFilename.lowercased()
+            return uti == "com.compuserve.gif" || filename.hasSuffix(".gif")
+        }) else {
+            completion(nil)
+            return
+        }
+
+        let options = PHAssetResourceRequestOptions()
+        options.isNetworkAccessAllowed = true
+
+        var data = Data()
+        PHAssetResourceManager.default().requestData(
+            for: resource,
+            options: options,
+            dataReceivedHandler: { chunk in
+                data.append(chunk)
+            },
+            completionHandler: { error in
+                completion(error == nil ? data : nil)
+            }
+        )
+    }
+
     private func configureCaches() {
         previewCache.countLimit = 12
         thumbnailCache.countLimit = 400
@@ -373,6 +411,7 @@ enum PhotoImageRequestMode: String {
 
 enum MediaKind {
     case photo
+    case gif
     case livePhoto
     case video
 }

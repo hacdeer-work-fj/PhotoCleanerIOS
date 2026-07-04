@@ -202,6 +202,14 @@ struct MediaBadge: View {
         switch kind {
         case .photo:
             EmptyView()
+        case .gif:
+            Text("GIF")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 3)
+                .background(.black.opacity(0.55), in: Capsule())
+                .padding(4)
         case .livePhoto:
             Image(systemName: "livephoto")
                 .font(.caption2.weight(.bold))

@@ -2,6 +2,7 @@ import AVFoundation
 import Photos
 import PhotosUI
 import SwiftUI
+import WebKit
 
 struct MediaPreviewView: View {
     let item: PhotoItem
@@ -12,11 +13,70 @@ struct MediaPreviewView: View {
         switch item.mediaKind {
         case .photo:
             PhotoImageView(item: item, contentMode: .fit, viewModel: viewModel)
+        case .gif:
+            GIFPreviewView(item: item, viewModel: viewModel)
         case .livePhoto:
             LivePhotoPreviewView(item: item, viewModel: viewModel)
         case .video:
             VideoPreviewView(item: item, isActive: isActive, viewModel: viewModel)
         }
+    }
+}
+
+struct GIFPreviewView: View {
+    let item: PhotoItem
+    @ObservedObject var viewModel: PhotoLibraryViewModel
+    @State private var gifData: Data?
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            if let gifData {
+                GIFWebView(data: gifData)
+            } else {
+                PhotoImageView(item: item, contentMode: .fit, viewModel: viewModel)
+            }
+
+            Label("GIF", systemImage: "repeat")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(.black.opacity(0.42), in: Capsule())
+                .padding(10)
+        }
+        .onAppear {
+            loadGIFData()
+        }
+        .onChange(of: item.id) { _ in
+            gifData = nil
+            loadGIFData()
+        }
+    }
+
+    private func loadGIFData() {
+        viewModel.requestGIFData(for: item) { data in
+            DispatchQueue.main.async {
+                gifData = data
+            }
+        }
+    }
+}
+
+struct GIFWebView: UIViewRepresentable {
+    let data: Data
+
+    func makeUIView(context: Context) -> WKWebView {
+        let webView = WKWebView()
+        webView.isOpaque = false
+        webView.backgroundColor = .clear
+        webView.scrollView.backgroundColor = .clear
+        webView.scrollView.isScrollEnabled = false
+        webView.load(data, mimeType: "image/gif", characterEncodingName: "UTF-8", baseURL: URL(fileURLWithPath: "/"))
+        return webView
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        uiView.load(data, mimeType: "image/gif", characterEncodingName: "UTF-8", baseURL: URL(fileURLWithPath: "/"))
     }
 }
 
