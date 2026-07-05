@@ -180,44 +180,95 @@ struct BottomControls: View {
 
 struct ThumbnailStrip: View {
     @ObservedObject var viewModel: PhotoLibraryViewModel
+    @State private var isCenterDrivenSelection = false
+    private let thumbnailSize = 58.0
+    private let thumbnailSpacing = 8.0
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 8) {
-                    ForEach(Array(viewModel.visibleItems.enumerated()), id: \.element.id) { index, item in
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.18)) {
-                                viewModel.selectVisibleItem(id: item.id)
+        GeometryReader { geometry in
+            ScrollViewReader { proxy in
+                ZStack {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(spacing: thumbnailSpacing) {
+                            ForEach(viewModel.visibleItems) { item in
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.18)) {
+                                        viewModel.selectVisibleItem(id: item.id)
+                                        proxy.scrollTo(item.id, anchor: .center)
+                                    }
+                                } label: {
+                                    PhotoImageView(item: item, contentMode: .fill, requestMode: .thumbnail, viewModel: viewModel)
+                                        .frame(width: thumbnailSize, height: thumbnailSize)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                        .overlay {
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                                        }
+                                        .overlay(alignment: .topLeading) {
+                                            MediaBadge(kind: item.mediaKind)
+                                        }
+                                }
+                                .buttonStyle(.plain)
+                                .id(item.id)
+                                .background(
+                                    GeometryReader { itemGeometry in
+                                        Color.clear.preference(
+                                            key: ThumbnailCenterPreferenceKey.self,
+                                            value: [item.id: itemGeometry.frame(in: .named("thumbnailStrip")).midX]
+                                        )
+                                    }
+                                )
                             }
-                        } label: {
-                            PhotoImageView(item: item, contentMode: .fill, requestMode: .thumbnail, viewModel: viewModel)
-                                .frame(width: 58, height: 58)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(index == viewModel.currentIndex ? Color.accentColor : Color.white.opacity(0.35), lineWidth: index == viewModel.currentIndex ? 3 : 1)
-                                }
-                                .overlay(alignment: .topLeading) {
-                                    MediaBadge(kind: item.mediaKind)
-                                }
                         }
-                        .buttonStyle(.plain)
-                        .id(item.id)
+                        .padding(.horizontal, max((geometry.size.width - thumbnailSize) / 2, 0))
+                        .padding(.bottom, 2)
                     }
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 2)
-            }
-            .frame(height: 70)
-            .onChange(of: viewModel.currentIndex) { newIndex in
-                guard viewModel.visibleItems.indices.contains(newIndex) else { return }
+                    .coordinateSpace(name: "thumbnailStrip")
+                    .onPreferenceChange(ThumbnailCenterPreferenceKey.self) { centers in
+                        updateSelectionFromThumbnailCenter(centers: centers, viewportWidth: geometry.size.width)
+                    }
+                    .onChange(of: viewModel.currentIndex) { newIndex in
+                        guard !isCenterDrivenSelection else { return }
+                        guard viewModel.visibleItems.indices.contains(newIndex) else { return }
 
-                withAnimation(.easeInOut(duration: 0.18)) {
-                    proxy.scrollTo(viewModel.visibleItems[newIndex].id, anchor: .center)
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            proxy.scrollTo(viewModel.visibleItems[newIndex].id, anchor: .center)
+                        }
+                    }
+
+                    RoundedRectangle(cornerRadius: 9)
+                        .stroke(Color.accentColor, lineWidth: 3)
+                        .frame(width: thumbnailSize + 2, height: thumbnailSize + 2)
+                        .allowsHitTesting(false)
                 }
             }
         }
+        .frame(height: 70)
+    }
+
+    private func updateSelectionFromThumbnailCenter(centers: [String: CGFloat], viewportWidth: CGFloat) {
+        guard !centers.isEmpty else { return }
+        let viewportCenter = viewportWidth / 2
+        guard let centeredID = centers.min(by: {
+            abs($0.value - viewportCenter) < abs($1.value - viewportCenter)
+        })?.key else { return }
+        guard centeredID != viewModel.currentItemID else { return }
+
+        DispatchQueue.main.async {
+            isCenterDrivenSelection = true
+            viewModel.selectVisibleItem(id: centeredID)
+            DispatchQueue.main.async {
+                isCenterDrivenSelection = false
+            }
+        }
+    }
+}
+
+struct ThumbnailCenterPreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGFloat] = [:]
+
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
 
