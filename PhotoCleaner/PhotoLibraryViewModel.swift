@@ -38,6 +38,7 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
     @Published var isBusy = false
     @Published var alertMessage: String?
     @Published var infoItem: PhotoItem?
+    @Published private(set) var randomReturnItemID: String?
     @Published private(set) var photoInfo: PhotoInfo?
     @Published private(set) var isLoadingPhotoInfo = false
 
@@ -53,6 +54,7 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
     }()
     private let trashStore: TrashStore
     private var trashIDs: Set<String>
+    private var randomJumpItemID: String?
 
     override init() {
         self.authorizationStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
@@ -83,10 +85,30 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
         return visibleItems[currentIndex].id
     }
 
-    func selectVisibleItem(id: String) {
+    func selectVisibleItem(id: String, clearRandomReturnIfNeeded: Bool = true) {
         guard let index = visibleItems.firstIndex(where: { $0.id == id }) else { return }
+        if clearRandomReturnIfNeeded, randomJumpItemID != nil, id != randomJumpItemID {
+            clearRandomReturn()
+        }
         currentIndex = index
         syncActiveItemID()
+    }
+
+    func jumpToRandomVisibleItem() {
+        guard visibleItems.count > 1 else { return }
+        let sourceID = currentItemID
+        let candidates = visibleItems.filter { $0.id != sourceID }
+        guard let target = candidates.randomElement() else { return }
+
+        randomReturnItemID = sourceID
+        randomJumpItemID = target.id
+        selectVisibleItem(id: target.id, clearRandomReturnIfNeeded: false)
+    }
+
+    func returnToRandomSource() {
+        guard let sourceID = randomReturnItemID else { return }
+        clearRandomReturn()
+        selectVisibleItem(id: sourceID, clearRandomReturnIfNeeded: false)
     }
 
     func requestAccessAndLoad() {
@@ -143,6 +165,7 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
         trashIDs.insert(removedItem.id)
         updatedTrashItems.insert(removedItem, at: 0)
         trashStore.save(trashIDs)
+        clearRandomReturn()
 
         visibleItems = updatedVisibleItems
         trashItems = updatedTrashItems
@@ -460,6 +483,11 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
         visibleItems = allItems.filter { !trashIDs.contains($0.id) }
         trashItems = allItems.filter { trashIDs.contains($0.id) }
         selectedTrashIDs = selectedTrashIDs.intersection(Set(trashItems.map(\.id)))
+        let visibleIDs = Set(visibleItems.map(\.id))
+        if randomReturnItemID.map({ !visibleIDs.contains($0) }) == true ||
+            randomJumpItemID.map({ !visibleIDs.contains($0) }) == true {
+            clearRandomReturn()
+        }
 
         if visibleItems.isEmpty {
             currentIndex = 0
@@ -471,6 +499,11 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
 
     private func syncActiveItemID() {
         activeItemID = currentItemID
+    }
+
+    private func clearRandomReturn() {
+        randomReturnItemID = nil
+        randomJumpItemID = nil
     }
 }
 

@@ -81,29 +81,53 @@ struct PhotoBrowserView: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                TabView(selection: Binding(
-                    get: { viewModel.currentItemID },
-                    set: { viewModel.selectVisibleItem(id: $0) }
-                )) {
-                    ForEach(Array(viewModel.visibleItems.enumerated()), id: \.element.id) { index, item in
-                        MediaPreviewView(
-                            item: item,
-                            activeItemID: viewModel.activeItemID,
-                            viewModel: viewModel
-                        )
-                            .padding(.horizontal, 10)
-                            .tag(item.id)
-                            .simultaneousGesture(
-                                DragGesture(minimumDistance: 28)
-                                    .onEnded { value in
-                                        if value.translation.height < -70 && abs(value.translation.width) < 80 {
-                                            viewModel.showInfo(for: item)
-                                        }
-                                    }
+                ZStack(alignment: .topLeading) {
+                    TabView(selection: Binding(
+                        get: { viewModel.currentItemID },
+                        set: { viewModel.selectVisibleItem(id: $0) }
+                    )) {
+                        ForEach(Array(viewModel.visibleItems.enumerated()), id: \.element.id) { index, item in
+                            MediaPreviewView(
+                                item: item,
+                                activeItemID: viewModel.activeItemID,
+                                viewModel: viewModel
                             )
+                                .padding(.horizontal, 10)
+                                .tag(item.id)
+                                .simultaneousGesture(
+                                    DragGesture(minimumDistance: 28)
+                                        .onEnded { value in
+                                            if value.translation.height < -70 && abs(value.translation.width) < 80 {
+                                                viewModel.showInfo(for: item)
+                                            } else if value.translation.height > 70 && abs(value.translation.width) < 80 {
+                                                withAnimation(.easeInOut(duration: 0.18)) {
+                                                    viewModel.jumpToRandomVisibleItem()
+                                                }
+                                            }
+                                        }
+                                )
+                        }
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+
+                    if viewModel.randomReturnItemID != nil {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                viewModel.returnToRandomSource()
+                            }
+                        } label: {
+                            Image(systemName: "arrow.uturn.left")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.primary)
+                                .frame(width: 40, height: 40)
+                                .background(.regularMaterial, in: Circle())
+                                .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.leading, 16)
+                        .padding(.top, 12)
                     }
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
 
                 Text("\(viewModel.currentIndex + 1) / \(viewModel.visibleItems.count)")
                     .font(.footnote)
