@@ -227,6 +227,12 @@ struct ThumbnailStrip: View {
                     .onPreferenceChange(ThumbnailCenterPreferenceKey.self) { centers in
                         updateSelectionFromThumbnailCenter(centers: centers, viewportWidth: geometry.size.width)
                     }
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 4)
+                            .onEnded { _ in
+                                snapThumbnailToCurrent(proxy: proxy)
+                            }
+                    )
                     .onChange(of: viewModel.currentIndex) { newIndex in
                         guard !isCenterDrivenSelection else { return }
                         guard viewModel.visibleItems.indices.contains(newIndex) else { return }
@@ -259,6 +265,20 @@ struct ThumbnailStrip: View {
             viewModel.selectVisibleItem(id: centeredID)
             DispatchQueue.main.async {
                 isCenterDrivenSelection = false
+            }
+        }
+    }
+
+    private func snapThumbnailToCurrent(proxy: ScrollViewProxy) {
+        let currentID = viewModel.currentItemID
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            withAnimation(.easeOut(duration: 0.16)) {
+                proxy.scrollTo(currentID, anchor: .center)
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+            withAnimation(.easeOut(duration: 0.14)) {
+                proxy.scrollTo(viewModel.currentItemID, anchor: .center)
             }
         }
     }

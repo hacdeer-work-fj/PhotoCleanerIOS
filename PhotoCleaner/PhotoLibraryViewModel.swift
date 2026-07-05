@@ -55,6 +55,7 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
     private let trashStore: TrashStore
     private var trashIDs: Set<String>
     private var randomJumpItemID: String?
+    private var preserveRandomReturnUntil: Date?
 
     override init() {
         self.authorizationStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
@@ -87,7 +88,11 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
 
     func selectVisibleItem(id: String, clearRandomReturnIfNeeded: Bool = true) {
         guard let index = visibleItems.firstIndex(where: { $0.id == id }) else { return }
-        if clearRandomReturnIfNeeded, randomJumpItemID != nil, id != randomJumpItemID {
+        let shouldPreserveRandomReturn = preserveRandomReturnUntil.map { Date() < $0 } ?? false
+        if clearRandomReturnIfNeeded,
+           !shouldPreserveRandomReturn,
+           randomJumpItemID != nil,
+           id != randomJumpItemID {
             clearRandomReturn()
         }
         currentIndex = index
@@ -102,6 +107,7 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
 
         randomReturnItemID = sourceID
         randomJumpItemID = target.id
+        preserveRandomReturnUntil = Date().addingTimeInterval(0.8)
         selectVisibleItem(id: target.id, clearRandomReturnIfNeeded: false)
     }
 
@@ -504,6 +510,7 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
     private func clearRandomReturn() {
         randomReturnItemID = nil
         randomJumpItemID = nil
+        preserveRandomReturnUntil = nil
     }
 }
 
