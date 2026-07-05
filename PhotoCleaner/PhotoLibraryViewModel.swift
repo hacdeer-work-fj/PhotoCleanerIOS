@@ -88,6 +88,12 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
 
     func selectVisibleItem(id: String, clearRandomReturnIfNeeded: Bool = true) {
         guard let index = visibleItems.firstIndex(where: { $0.id == id }) else { return }
+        selectVisibleItem(at: index, clearRandomReturnIfNeeded: clearRandomReturnIfNeeded)
+    }
+
+    func selectVisibleItem(at index: Int, clearRandomReturnIfNeeded: Bool = true) {
+        guard visibleItems.indices.contains(index) else { return }
+        let id = visibleItems[index].id
         let shouldPreserveRandomReturn = preserveRandomReturnUntil.map { Date() < $0 } ?? false
         if clearRandomReturnIfNeeded,
            !shouldPreserveRandomReturn,
