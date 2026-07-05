@@ -212,13 +212,6 @@ struct ThumbnailStrip: View {
                 }
                 .frame(width: geometry.size.width, height: 70)
                 .clipped()
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 18)
-                        .onEnded { value in
-                            moveByThumbnailDrag(value)
-                        }
-                )
 
                 RoundedRectangle(cornerRadius: 9)
                     .stroke(Color.accentColor, lineWidth: 3)
@@ -232,21 +225,6 @@ struct ThumbnailStrip: View {
     private func thumbnailSlots(for width: CGFloat) -> Int {
         let rawCount = max(Int((width + thumbnailSpacing) / (thumbnailSize + thumbnailSpacing)), 1)
         return rawCount.isMultiple(of: 2) ? rawCount - 1 : rawCount
-    }
-
-    private func moveByThumbnailDrag(_ value: DragGesture.Value) {
-        let distance = -value.predictedEndTranslation.width
-        let stepWidth = thumbnailSize + thumbnailSpacing
-        let rawSteps = Int((distance / stepWidth).rounded())
-        let steps = max(min(rawSteps, 8), -8)
-        guard steps != 0 else { return }
-
-        let targetIndex = min(max(viewModel.currentIndex + steps, 0), viewModel.visibleItems.count - 1)
-        guard targetIndex != viewModel.currentIndex else { return }
-
-        withAnimation(.easeOut(duration: 0.16)) {
-            viewModel.selectVisibleItem(at: targetIndex)
-        }
     }
 }
 
