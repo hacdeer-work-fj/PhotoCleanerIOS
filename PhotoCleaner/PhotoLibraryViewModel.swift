@@ -257,10 +257,15 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
     func requestImage(for item: PhotoItem, targetSize: CGSize, mode: PhotoImageRequestMode, completion: @escaping (UIImage?) -> Void) {
         let scale = UIScreen.main.scale
         let minimumPixelSize = mode == .thumbnail ? 120.0 : 300.0
-        let pixelSize = CGSize(
-            width: max(targetSize.width * scale, minimumPixelSize),
-            height: max(targetSize.height * scale, minimumPixelSize)
-        )
+        let pixelSize: CGSize
+        if mode == .thumbnail {
+            pixelSize = CGSize(width: minimumPixelSize, height: minimumPixelSize)
+        } else {
+            pixelSize = CGSize(
+                width: max(targetSize.width * scale, minimumPixelSize),
+                height: max(targetSize.height * scale, minimumPixelSize)
+            )
+        }
         let cacheKey = "\(item.id)-\(Int(pixelSize.width))x\(Int(pixelSize.height))-\(mode.rawValue)" as NSString
         let cache = mode == .thumbnail ? thumbnailCache : previewCache
 

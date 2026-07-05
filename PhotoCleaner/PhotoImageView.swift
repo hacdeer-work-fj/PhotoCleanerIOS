@@ -7,6 +7,7 @@ struct PhotoImageView: View {
     let requestMode: PhotoImageRequestMode
     @ObservedObject var viewModel: PhotoLibraryViewModel
     @State private var image: UIImage?
+    @State private var currentRequestID: String?
 
     init(item: PhotoItem, contentMode: ContentMode, requestMode: PhotoImageRequestMode = .preview, viewModel: PhotoLibraryViewModel) {
         self.item = item
@@ -39,10 +40,11 @@ struct PhotoImageView: View {
 
     private func loadImage(size: CGSize) {
         let requestedID = item.id
+        currentRequestID = requestedID
         image = nil
         viewModel.requestImage(for: item, targetSize: size, mode: requestMode) { loadedImage in
             DispatchQueue.main.async {
-                guard requestedID == item.id else { return }
+                guard currentRequestID == requestedID else { return }
                 image = loadedImage
             }
         }

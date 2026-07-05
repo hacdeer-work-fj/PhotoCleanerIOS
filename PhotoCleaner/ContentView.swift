@@ -201,6 +201,7 @@ struct ThumbnailStrip: View {
                                 }
                             } label: {
                                 ThumbnailCell(item: item, size: thumbnailSize, viewModel: viewModel)
+                                    .id(item.id)
                             }
                             .buttonStyle(.plain)
                         } else {
