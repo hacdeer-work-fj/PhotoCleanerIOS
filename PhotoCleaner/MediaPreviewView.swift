@@ -6,7 +6,7 @@ import WebKit
 
 struct MediaPreviewView: View {
     let item: PhotoItem
-    let isActive: Bool
+    let activeItemID: String
     @ObservedObject var viewModel: PhotoLibraryViewModel
 
     var body: some View {
@@ -16,7 +16,7 @@ struct MediaPreviewView: View {
         case .livePhoto:
             LivePhotoPreviewView(item: item, viewModel: viewModel)
         case .video:
-            VideoPreviewView(item: item, isActive: isActive, viewModel: viewModel)
+            VideoPreviewView(item: item, activeItemID: activeItemID, viewModel: viewModel)
         }
     }
 }
@@ -169,7 +169,7 @@ struct LivePhotoPlayer: UIViewRepresentable {
 
 struct VideoPreviewView: View {
     let item: PhotoItem
-    let isActive: Bool
+    let activeItemID: String
     @ObservedObject var viewModel: PhotoLibraryViewModel
     @State private var player = AVPlayer()
     @State private var loadedID: String?
@@ -211,20 +211,21 @@ struct VideoPreviewView: View {
             .padding(.horizontal, 8)
         }
         .onAppear {
-            loadPlayerItemIfNeeded()
             updatePlaybackForVisibility()
         }
         .onDisappear {
-            pause()
+            forceStop()
             removeTimeObserver()
         }
         .onChange(of: item.id) { _ in
             resetPlayer()
-            loadPlayerItemIfNeeded()
             updatePlaybackForVisibility()
         }
-        .onChange(of: isActive) { _ in
-            schedulePlaybackUpdate()
+        .onChange(of: activeItemID) { _ in
+            updatePlaybackForVisibility()
+        }
+        .onReceive(viewModel.$activeItemID) { _ in
+            updatePlaybackForVisibility()
         }
     }
 
@@ -246,6 +247,7 @@ struct VideoPreviewView: View {
     }
 
     private func togglePlayback() {
+        guard isCurrentVideo else { return }
         if isPlaying {
             pause()
         } else {
@@ -254,7 +256,13 @@ struct VideoPreviewView: View {
     }
 
     private func updatePlaybackForVisibility() {
-        if isActive && loadedID == item.id && player.currentItem != nil {
+        guard isCurrentVideo else {
+            forceStop()
+            return
+        }
+
+        loadPlayerItemIfNeeded()
+        if loadedID == item.id && player.currentItem != nil {
             play()
         } else {
             pause()
@@ -268,6 +276,13 @@ struct VideoPreviewView: View {
 
     private func pause() {
         player.pause()
+        isPlaying = false
+    }
+
+    private func forceStop() {
+        player.pause()
+        player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+        currentTime = 0
         isPlaying = false
     }
 
@@ -317,9 +332,13 @@ struct VideoPreviewView: View {
         updatePlaybackForVisibility()
         let expectedID = item.id
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            guard expectedID == item.id else { return }
+            guard expectedID == item.id, isCurrentVideo else { return }
             updatePlaybackForVisibility()
         }
+    }
+
+    private var isCurrentVideo: Bool {
+        activeItemID == item.id && viewModel.activeItemID == item.id
     }
 }
 

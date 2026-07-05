@@ -88,7 +88,7 @@ struct PhotoBrowserView: View {
                     ForEach(Array(viewModel.visibleItems.enumerated()), id: \.element.id) { index, item in
                         MediaPreviewView(
                             item: item,
-                            isActive: item.id == viewModel.currentItemID,
+                            activeItemID: viewModel.activeItemID,
                             viewModel: viewModel
                         )
                             .padding(.horizontal, 10)

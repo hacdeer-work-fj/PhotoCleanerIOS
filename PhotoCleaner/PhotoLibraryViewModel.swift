@@ -28,7 +28,12 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
     @Published private(set) var allItems: [PhotoItem] = []
     @Published private(set) var visibleItems: [PhotoItem] = []
     @Published private(set) var trashItems: [PhotoItem] = []
-    @Published var currentIndex: Int = 0
+    @Published var currentIndex: Int = 0 {
+        didSet {
+            syncActiveItemID()
+        }
+    }
+    @Published private(set) var activeItemID = ""
     @Published var selectedTrashIDs: Set<String> = []
     @Published var isBusy = false
     @Published var alertMessage: String?
@@ -81,6 +86,7 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
     func selectVisibleItem(id: String) {
         guard let index = visibleItems.firstIndex(where: { $0.id == id }) else { return }
         currentIndex = index
+        syncActiveItemID()
     }
 
     func requestAccessAndLoad() {
@@ -146,6 +152,7 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
         } else {
             currentIndex = min(currentIndex, updatedVisibleItems.count - 1)
         }
+        syncActiveItemID()
     }
 
     func restoreSelectedTrashItems() {
@@ -459,6 +466,11 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
         } else {
             currentIndex = min(currentIndex, visibleItems.count - 1)
         }
+        syncActiveItemID()
+    }
+
+    private func syncActiveItemID() {
+        activeItemID = currentItemID
     }
 }
 
