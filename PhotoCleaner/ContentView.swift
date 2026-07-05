@@ -81,16 +81,19 @@ struct PhotoBrowserView: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                TabView(selection: $viewModel.currentIndex) {
+                TabView(selection: Binding(
+                    get: { viewModel.currentItemID },
+                    set: { viewModel.selectVisibleItem(id: $0) }
+                )) {
                     ForEach(Array(viewModel.visibleItems.enumerated()), id: \.element.id) { index, item in
                         MediaPreviewView(
                             item: item,
-                            isActive: index == viewModel.currentIndex,
+                            isActive: item.id == viewModel.currentItemID,
                             viewModel: viewModel
                         )
                             .padding(.horizontal, 10)
-                            .tag(index)
-                            .gesture(
+                            .tag(item.id)
+                            .simultaneousGesture(
                                 DragGesture(minimumDistance: 28)
                                     .onEnded { value in
                                         if value.translation.height < -70 && abs(value.translation.width) < 80 {
@@ -161,7 +164,7 @@ struct ThumbnailStrip: View {
                     ForEach(Array(viewModel.visibleItems.enumerated()), id: \.element.id) { index, item in
                         Button {
                             withAnimation(.easeInOut(duration: 0.18)) {
-                                viewModel.currentIndex = index
+                                viewModel.selectVisibleItem(id: item.id)
                             }
                         } label: {
                             PhotoImageView(item: item, contentMode: .fill, requestMode: .thumbnail, viewModel: viewModel)

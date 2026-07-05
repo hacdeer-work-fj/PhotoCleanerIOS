@@ -73,6 +73,16 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
         !trashItems.isEmpty && selectedTrashIDs.count == trashItems.count
     }
 
+    var currentItemID: String {
+        guard visibleItems.indices.contains(currentIndex) else { return "" }
+        return visibleItems[currentIndex].id
+    }
+
+    func selectVisibleItem(id: String) {
+        guard let index = visibleItems.firstIndex(where: { $0.id == id }) else { return }
+        currentIndex = index
+    }
+
     func requestAccessAndLoad() {
         let current = PHPhotoLibrary.authorizationStatus(for: .readWrite)
         authorizationStatus = current

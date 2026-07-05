@@ -224,21 +224,23 @@ struct VideoPreviewView: View {
             updatePlaybackForVisibility()
         }
         .onChange(of: isActive) { _ in
-            updatePlaybackForVisibility()
+            schedulePlaybackUpdate()
         }
     }
 
     private func loadPlayerItemIfNeeded() {
         guard loadedID != item.id else { return }
+        let requestedID = item.id
 
         viewModel.requestPlayerItem(for: item) { playerItem in
             DispatchQueue.main.async {
+                guard requestedID == item.id else { return }
                 guard loadedID != item.id else { return }
                 player.replaceCurrentItem(with: playerItem)
                 loadedID = item.id
                 duration = playerItem.flatMap { CMTimeGetSeconds($0.asset.duration) }.flatMap { $0.isFinite ? $0 : nil } ?? 0
                 addTimeObserver()
-                updatePlaybackForVisibility()
+                schedulePlaybackUpdate()
             }
         }
     }
@@ -252,7 +254,7 @@ struct VideoPreviewView: View {
     }
 
     private func updatePlaybackForVisibility() {
-        if isActive && loadedID == item.id {
+        if isActive && loadedID == item.id && player.currentItem != nil {
             play()
         } else {
             pause()
@@ -260,7 +262,7 @@ struct VideoPreviewView: View {
     }
 
     private func play() {
-        player.play()
+        player.playImmediately(atRate: 1.0)
         isPlaying = true
     }
 
@@ -308,6 +310,15 @@ struct VideoPreviewView: View {
         if let timeObserver {
             player.removeTimeObserver(timeObserver)
             self.timeObserver = nil
+        }
+    }
+
+    private func schedulePlaybackUpdate() {
+        updatePlaybackForVisibility()
+        let expectedID = item.id
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            guard expectedID == item.id else { return }
+            updatePlaybackForVisibility()
         }
     }
 }
