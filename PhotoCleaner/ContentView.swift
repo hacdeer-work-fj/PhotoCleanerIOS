@@ -97,9 +97,13 @@ struct PhotoBrowserView: View {
                                 .simultaneousGesture(
                                     DragGesture(minimumDistance: 28)
                                         .onEnded { value in
-                                            if value.translation.height < -70 && abs(value.translation.width) < 80 {
+                                            let horizontalDistance = abs(value.translation.width)
+                                            let verticalDistance = abs(value.translation.height)
+                                            let isVerticalIntent = verticalDistance >= 90 && verticalDistance >= horizontalDistance * 1.8
+
+                                            if isVerticalIntent && value.translation.height < 0 {
                                                 viewModel.showInfo(for: item)
-                                            } else if value.translation.height > 70 && abs(value.translation.width) < 80 {
+                                            } else if isVerticalIntent && value.translation.height > 0 {
                                                 withAnimation(.easeInOut(duration: 0.18)) {
                                                     viewModel.jumpToRandomVisibleItem()
                                                 }
@@ -180,51 +184,44 @@ struct BottomControls: View {
 
 struct ThumbnailStrip: View {
     @ObservedObject var viewModel: PhotoLibraryViewModel
+    private let thumbnailSlots = 7
     private let thumbnailSize = 58.0
     private let thumbnailSpacing = 8.0
 
     var body: some View {
-        GeometryReader { geometry in
-            let slots = thumbnailSlots(for: geometry.size.width)
-            let centerSlot = slots / 2
+        let centerSlot = thumbnailSlots / 2
 
-            ZStack {
-                HStack(spacing: thumbnailSpacing) {
-                    ForEach(0..<slots, id: \.self) { slot in
-                        let itemIndex = viewModel.currentIndex + slot - centerSlot
+        ZStack {
+            HStack(spacing: thumbnailSpacing) {
+                ForEach(0..<thumbnailSlots, id: \.self) { slot in
+                    let itemIndex = viewModel.currentIndex + slot - centerSlot
 
-                        if viewModel.visibleItems.indices.contains(itemIndex) {
-                            let item = viewModel.visibleItems[itemIndex]
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.16)) {
-                                    viewModel.selectVisibleItem(at: itemIndex)
-                                }
-                            } label: {
-                                ThumbnailCell(item: item, size: thumbnailSize, viewModel: viewModel)
-                                    .id(item.id)
+                    if viewModel.visibleItems.indices.contains(itemIndex) {
+                        let item = viewModel.visibleItems[itemIndex]
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.16)) {
+                                viewModel.selectVisibleItem(at: itemIndex)
                             }
-                            .buttonStyle(.plain)
-                        } else {
-                            Color.clear
-                                .frame(width: thumbnailSize, height: thumbnailSize)
+                        } label: {
+                            ThumbnailCell(item: item, size: thumbnailSize, viewModel: viewModel)
+                                .id(item.id)
                         }
+                        .buttonStyle(.plain)
+                    } else {
+                        Color.clear
+                            .frame(width: thumbnailSize, height: thumbnailSize)
                     }
                 }
-                .frame(width: geometry.size.width, height: 70)
-                .clipped()
-
-                RoundedRectangle(cornerRadius: 9)
-                    .stroke(Color.accentColor, lineWidth: 3)
-                    .frame(width: thumbnailSize + 2, height: thumbnailSize + 2)
-                    .allowsHitTesting(false)
             }
+            .frame(maxWidth: .infinity)
+            .clipped()
+
+            RoundedRectangle(cornerRadius: 9)
+                .stroke(Color.accentColor, lineWidth: 3)
+                .frame(width: thumbnailSize + 2, height: thumbnailSize + 2)
+                .allowsHitTesting(false)
         }
         .frame(height: 70)
-    }
-
-    private func thumbnailSlots(for width: CGFloat) -> Int {
-        let rawCount = max(Int((width + thumbnailSpacing) / (thumbnailSize + thumbnailSpacing)), 1)
-        return rawCount.isMultiple(of: 2) ? rawCount - 1 : rawCount
     }
 }
 
