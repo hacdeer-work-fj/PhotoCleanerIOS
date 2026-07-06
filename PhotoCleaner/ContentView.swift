@@ -378,12 +378,15 @@ struct InfoRow: View {
 
 struct PhotoLocationMapView: View {
     let coordinate: CLLocationCoordinate2D
+    private let mapCoordinate: CLLocationCoordinate2D
     @State private var region: MKCoordinateRegion
 
     init(coordinate: CLLocationCoordinate2D) {
         self.coordinate = coordinate
+        let mapCoordinate = MapCoordinateConverter.displayCoordinate(for: coordinate)
+        self.mapCoordinate = mapCoordinate
         self._region = State(initialValue: MKCoordinateRegion(
-            center: coordinate,
+            center: mapCoordinate,
             span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
         ))
     }
@@ -393,7 +396,7 @@ struct PhotoLocationMapView: View {
             openInMaps()
         } label: {
             ZStack(alignment: .bottomTrailing) {
-                Map(coordinateRegion: $region, annotationItems: [PhotoMapPin(coordinate: coordinate)]) { pin in
+                Map(coordinateRegion: $region, annotationItems: [PhotoMapPin(coordinate: mapCoordinate)]) { pin in
                     MapMarker(coordinate: pin.coordinate, tint: .red)
                 }
                 .allowsHitTesting(false)
@@ -414,11 +417,11 @@ struct PhotoLocationMapView: View {
     }
 
     private func openInMaps() {
-        let placemark = MKPlacemark(coordinate: coordinate)
+        let placemark = MKPlacemark(coordinate: mapCoordinate)
         let item = MKMapItem(placemark: placemark)
         item.name = "照片位置"
         item.openInMaps(launchOptions: [
-            MKLaunchOptionsMapCenterKey: NSValue(mkCoordinate: coordinate),
+            MKLaunchOptionsMapCenterKey: NSValue(mkCoordinate: mapCoordinate),
             MKLaunchOptionsMapSpanKey: NSValue(mkCoordinateSpan: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
         ])
     }
@@ -427,4 +430,72 @@ struct PhotoLocationMapView: View {
 struct PhotoMapPin: Identifiable {
     let id = UUID()
     let coordinate: CLLocationCoordinate2D
+}
+
+enum MapCoordinateConverter {
+    static func displayCoordinate(for coordinate: CLLocationCoordinate2D) -> CLLocationCoordinate2D {
+        guard isInMainlandChina(coordinate) else {
+            return coordinate
+        }
+        return wgs84ToGCJ02(coordinate)
+    }
+
+    private static func isInMainlandChina(_ coordinate: CLLocationCoordinate2D) -> Bool {
+        let longitude = coordinate.longitude
+        let latitude = coordinate.latitude
+
+        guard longitude >= 73.66, longitude <= 135.05, latitude >= 3.86, latitude <= 53.55 else {
+            return false
+        }
+
+        if longitude >= 119.0, longitude <= 122.5, latitude >= 21.5, latitude <= 25.5 {
+            return false
+        }
+
+        if longitude >= 113.7, longitude <= 114.5, latitude >= 22.1, latitude <= 22.6 {
+            return false
+        }
+
+        return true
+    }
+
+    private static func wgs84ToGCJ02(_ coordinate: CLLocationCoordinate2D) -> CLLocationCoordinate2D {
+        let a = 6378245.0
+        let ee = 0.00669342162296594323
+        let longitudeOffset = coordinate.longitude - 105.0
+        let latitudeOffset = coordinate.latitude - 35.0
+
+        var transformedLatitude = transformLatitude(longitudeOffset, latitudeOffset)
+        var transformedLongitude = transformLongitude(longitudeOffset, latitudeOffset)
+        let radianLatitude = coordinate.latitude / 180.0 * .pi
+        var magic = sin(radianLatitude)
+        magic = 1.0 - ee * magic * magic
+        let sqrtMagic = sqrt(magic)
+
+        transformedLatitude = (transformedLatitude * 180.0) / ((a * (1.0 - ee)) / (magic * sqrtMagic) * .pi)
+        transformedLongitude = (transformedLongitude * 180.0) / (a / sqrtMagic * cos(radianLatitude) * .pi)
+
+        return CLLocationCoordinate2D(
+            latitude: coordinate.latitude + transformedLatitude,
+            longitude: coordinate.longitude + transformedLongitude
+        )
+    }
+
+    private static func transformLatitude(_ longitude: Double, _ latitude: Double) -> Double {
+        var result = -100.0 + 2.0 * longitude + 3.0 * latitude + 0.2 * latitude * latitude
+        result += 0.1 * longitude * latitude + 0.2 * sqrt(abs(longitude))
+        result += (20.0 * sin(6.0 * longitude * .pi) + 20.0 * sin(2.0 * longitude * .pi)) * 2.0 / 3.0
+        result += (20.0 * sin(latitude * .pi) + 40.0 * sin(latitude / 3.0 * .pi)) * 2.0 / 3.0
+        result += (160.0 * sin(latitude / 12.0 * .pi) + 320.0 * sin(latitude * .pi / 30.0)) * 2.0 / 3.0
+        return result
+    }
+
+    private static func transformLongitude(_ longitude: Double, _ latitude: Double) -> Double {
+        var result = 300.0 + longitude + 2.0 * latitude + 0.1 * longitude * longitude
+        result += 0.1 * longitude * latitude + 0.1 * sqrt(abs(longitude))
+        result += (20.0 * sin(6.0 * longitude * .pi) + 20.0 * sin(2.0 * longitude * .pi)) * 2.0 / 3.0
+        result += (20.0 * sin(longitude * .pi) + 40.0 * sin(longitude / 3.0 * .pi)) * 2.0 / 3.0
+        result += (150.0 * sin(longitude / 12.0 * .pi) + 300.0 * sin(longitude / 30.0 * .pi)) * 2.0 / 3.0
+        return result
+    }
 }
