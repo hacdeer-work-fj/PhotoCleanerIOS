@@ -82,18 +82,20 @@ struct PhotoBrowserView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ZStack(alignment: .topLeading) {
-                    TabView(selection: Binding(
-                        get: { viewModel.currentItemID },
-                        set: { viewModel.selectVisibleItem(id: $0) }
-                    )) {
-                        ForEach(Array(viewModel.visibleItems.enumerated()), id: \.element.id) { index, item in
+                    TabView(
+                        selection: Binding(
+                            get: { viewModel.currentItemID },
+                            set: { viewModel.selectVisibleItem(id: $0) }
+                        )
+                    ) {
+                        ForEach(visiblePages) { page in
                             MediaPreviewView(
-                                item: item,
+                                item: page.item,
                                 activeItemID: viewModel.activeItemID,
                                 viewModel: viewModel
                             )
                                 .padding(.horizontal, 10)
-                                .tag(item.id)
+                                .tag(page.item.id)
                                 .simultaneousGesture(
                                     DragGesture(minimumDistance: 28)
                                         .onEnded { value in
@@ -102,7 +104,7 @@ struct PhotoBrowserView: View {
                                             let isVerticalIntent = verticalDistance >= 90 && verticalDistance >= horizontalDistance * 1.8
 
                                             if isVerticalIntent && value.translation.height < 0 {
-                                                viewModel.showInfo(for: item)
+                                                viewModel.showInfo(for: page.item)
                                             } else if isVerticalIntent && value.translation.height > 0 {
                                                 withAnimation(.easeInOut(duration: 0.18)) {
                                                     viewModel.jumpToRandomVisibleItem()
@@ -141,6 +143,25 @@ struct PhotoBrowserView: View {
 
             BottomControls(viewModel: viewModel, showingTrash: $showingTrash)
         }
+    }
+
+    private var visiblePages: [BrowserPage] {
+        guard !viewModel.visibleItems.isEmpty else { return [] }
+        let lowerBound = max(viewModel.currentIndex - 1, 0)
+        let upperBound = min(viewModel.currentIndex + 1, viewModel.visibleItems.count - 1)
+
+        return (lowerBound...upperBound).map { index in
+            BrowserPage(index: index, item: viewModel.visibleItems[index])
+        }
+    }
+}
+
+private struct BrowserPage: Identifiable {
+    let index: Int
+    let item: PhotoItem
+
+    var id: String {
+        item.id
     }
 }
 
