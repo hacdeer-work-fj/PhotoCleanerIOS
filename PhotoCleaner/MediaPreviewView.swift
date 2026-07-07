@@ -74,6 +74,18 @@ struct GIFWebView: UIViewRepresentable {
 
     final class Coordinator {
         var loadedData: Data?
+        var gifURL: URL?
+
+        deinit {
+            removeTemporaryGIF()
+        }
+
+        func removeTemporaryGIF() {
+            if let gifURL {
+                try? FileManager.default.removeItem(at: gifURL)
+                self.gifURL = nil
+            }
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -92,8 +104,19 @@ struct GIFWebView: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {
         guard context.coordinator.loadedData != data else { return }
         context.coordinator.loadedData = data
+        context.coordinator.removeTemporaryGIF()
 
-        let base64GIF = data.base64EncodedString()
+        let directoryURL = FileManager.default.temporaryDirectory.appendingPathComponent("PhotoCleanerGIFs", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        let gifURL = directoryURL.appendingPathComponent("\(UUID().uuidString).gif")
+
+        do {
+            try data.write(to: gifURL, options: .atomic)
+            context.coordinator.gifURL = gifURL
+        } catch {
+            return
+        }
+
         let html = """
         <!doctype html>
         <html>
@@ -123,11 +146,11 @@ struct GIFWebView: UIViewRepresentable {
           </style>
         </head>
         <body>
-          <img src="data:image/gif;base64,\(base64GIF)" alt="">
+          <img src="\(gifURL.lastPathComponent)" alt="">
         </body>
         </html>
         """
-        uiView.loadHTMLString(html, baseURL: nil)
+        uiView.loadHTMLString(html, baseURL: directoryURL)
     }
 }
 
