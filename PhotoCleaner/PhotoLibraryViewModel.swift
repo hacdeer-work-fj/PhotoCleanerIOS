@@ -254,7 +254,8 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
         isLoadingPhotoInfo = false
     }
 
-    func requestImage(for item: PhotoItem, targetSize: CGSize, mode: PhotoImageRequestMode, completion: @escaping (UIImage?) -> Void) {
+    @discardableResult
+    func requestImage(for item: PhotoItem, targetSize: CGSize, mode: PhotoImageRequestMode, completion: @escaping (UIImage?) -> Void) -> PHImageRequestID? {
         let scale = UIScreen.main.scale
         let minimumPixelSize = mode == .thumbnail ? 120.0 : 300.0
         let pixelSize: CGSize
@@ -271,7 +272,7 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
 
         if let cachedImage = cache.object(forKey: cacheKey) {
             completion(cachedImage)
-            return
+            return nil
         }
 
         let options = PHImageRequestOptions()
@@ -279,7 +280,7 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
         options.resizeMode = .fast
         options.isNetworkAccessAllowed = true
 
-        imageManager.requestImage(
+        return imageManager.requestImage(
             for: item.asset,
             targetSize: pixelSize,
             contentMode: mode == .thumbnail ? .aspectFill : .aspectFit,
@@ -290,6 +291,11 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
             }
             completion(image)
         }
+    }
+
+    func cancelImageRequest(_ requestID: PHImageRequestID?) {
+        guard let requestID else { return }
+        imageManager.cancelImageRequest(requestID)
     }
 
     func requestLivePhoto(for item: PhotoItem, targetSize: CGSize, completion: @escaping (PHLivePhoto?) -> Void) {
