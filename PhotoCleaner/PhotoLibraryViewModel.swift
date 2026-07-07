@@ -23,7 +23,7 @@ struct PhotoItem: Identifiable {
     }
 }
 
-final class PhotoLibraryViewModel: NSObject, ObservableObject {
+final class PhotoLibraryViewModel: NSObject, ObservableObject, PHPhotoLibraryChangeObserver {
     @Published var authorizationStatus: PHAuthorizationStatus
     @Published private(set) var allItems: [PhotoItem] = []
     @Published private(set) var visibleItems: [PhotoItem] = []
@@ -63,6 +63,7 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
         self.trashIDs = trashStore.load()
         super.init()
         configureCaches()
+        PHPhotoLibrary.shared().register(self)
     }
 
     init(trashStore: TrashStore) {
@@ -71,6 +72,11 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
         self.trashIDs = trashStore.load()
         super.init()
         configureCaches()
+        PHPhotoLibrary.shared().register(self)
+    }
+
+    deinit {
+        PHPhotoLibrary.shared().unregisterChangeObserver(self)
     }
 
     var hasPhotoAccess: Bool {
@@ -145,6 +151,16 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
     }
 
     func loadPhotos() {
+        loadPhotos(preservingCurrentItemID: currentItemID)
+    }
+
+    func photoLibraryDidChange(_ changeInstance: PHChange) {
+        DispatchQueue.main.async { [weak self] in
+            self?.loadPhotos()
+        }
+    }
+
+    private func loadPhotos(preservingCurrentItemID preservedID: String?) {
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         options.predicate = NSPredicate(
@@ -166,6 +182,11 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject {
 
         allItems = items
         rebuildLists()
+
+        if let preservedID, let preservedIndex = visibleItems.firstIndex(where: { $0.id == preservedID }) {
+            currentIndex = preservedIndex
+            syncActiveItemID()
+        }
     }
 
     func moveCurrentPhotoToTrash() {
