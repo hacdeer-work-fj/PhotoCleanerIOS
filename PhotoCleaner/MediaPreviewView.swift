@@ -31,6 +31,7 @@ struct PhotoOrGIFPreviewView: View {
         ZStack(alignment: .topTrailing) {
             if let gifData {
                 GIFWebView(data: gifData)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 PhotoImageView(item: item, contentMode: .fit, viewModel: viewModel)
             }
@@ -91,7 +92,42 @@ struct GIFWebView: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {
         guard context.coordinator.loadedData != data else { return }
         context.coordinator.loadedData = data
-        uiView.load(data, mimeType: "image/gif", characterEncodingName: "UTF-8", baseURL: URL(fileURLWithPath: "/"))
+
+        let base64GIF = data.base64EncodedString()
+        let html = """
+        <!doctype html>
+        <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <style>
+            html, body {
+              width: 100%;
+              height: 100%;
+              margin: 0;
+              padding: 0;
+              overflow: hidden;
+              background: transparent;
+            }
+            body {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            img {
+              max-width: 100vw;
+              max-height: 100vh;
+              width: auto;
+              height: auto;
+              object-fit: contain;
+            }
+          </style>
+        </head>
+        <body>
+          <img src="data:image/gif;base64,\(base64GIF)" alt="">
+        </body>
+        </html>
+        """
+        uiView.loadHTMLString(html, baseURL: nil)
     }
 }
 
