@@ -106,8 +106,7 @@ struct GIFWebView: UIViewRepresentable {
         context.coordinator.loadedData = data
         context.coordinator.removeTemporaryGIF()
 
-        let directoryURL = FileManager.default.temporaryDirectory.appendingPathComponent("PhotoCleanerGIFs", isDirectory: true)
-        try? FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        let directoryURL = TemporaryCacheManager.prepareGIFDirectory(additionalBytes: Int64(data.count))
         let gifURL = directoryURL.appendingPathComponent("\(UUID().uuidString).gif")
 
         do {
@@ -151,6 +150,44 @@ struct GIFWebView: UIViewRepresentable {
         </html>
         """
         uiView.loadHTMLString(html, baseURL: directoryURL)
+    }
+}
+
+enum TemporaryCacheManager {
+    private static let maxCacheBytes: Int64 = 1_073_741_824
+
+    static var gifDirectoryURL: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("PhotoCleanerGIFs", isDirectory: true)
+    }
+
+    static func prepareGIFDirectory(additionalBytes: Int64 = 0) -> URL {
+        cleanIfNeeded(additionalBytes: additionalBytes)
+        try? FileManager.default.createDirectory(at: gifDirectoryURL, withIntermediateDirectories: true)
+        return gifDirectoryURL
+    }
+
+    static func cleanIfNeeded(additionalBytes: Int64 = 0) {
+        let fileManager = FileManager.default
+        let directoryURL = gifDirectoryURL
+        guard let fileURLs = try? fileManager.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return
+        }
+
+        let cacheBytes = fileURLs.reduce(Int64(0)) { total, fileURL in
+            let values = try? fileURL.resourceValues(forKeys: [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey])
+            let fileBytes = values?.totalFileAllocatedSize ?? values?.fileAllocatedSize ?? 0
+            return total + Int64(fileBytes)
+        }
+
+        guard cacheBytes + additionalBytes >= maxCacheBytes else { return }
+
+        for fileURL in fileURLs {
+            try? fileManager.removeItem(at: fileURL)
+        }
     }
 }
 

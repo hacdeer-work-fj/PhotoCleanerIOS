@@ -291,15 +291,15 @@ struct ThumbnailStrip: View {
 
                     if viewModel.visibleItems.indices.contains(itemIndex) {
                         let item = viewModel.visibleItems[itemIndex]
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.16)) {
-                                viewModel.selectVisibleItem(at: itemIndex)
-                            }
-                        } label: {
-                            ThumbnailCell(item: item, size: thumbnailSize, viewModel: viewModel)
-                                .id(item.id)
-                        }
-                        .buttonStyle(.plain)
+                        ThumbnailCell(item: item, size: thumbnailSize, viewModel: viewModel)
+                            .id(item.id)
+                            .contentShape(Rectangle())
+                            .highPriorityGesture(TapGesture().onEnded {
+                                withAnimation(.easeInOut(duration: 0.16)) {
+                                    viewModel.selectVisibleItem(at: itemIndex)
+                                }
+                            })
+                            .accessibilityAddTraits(.isButton)
                     } else {
                         Color.clear
                             .frame(width: thumbnailSize, height: thumbnailSize)
