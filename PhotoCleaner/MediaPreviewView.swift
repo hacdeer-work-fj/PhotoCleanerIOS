@@ -160,21 +160,30 @@ enum TemporaryCacheManager {
         FileManager.default.temporaryDirectory.appendingPathComponent("PhotoCleanerGIFs", isDirectory: true)
     }
 
+    static var shareDirectoryURL: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("PhotoCleanerShares", isDirectory: true)
+    }
+
     static func prepareGIFDirectory(additionalBytes: Int64 = 0) -> URL {
         cleanIfNeeded(additionalBytes: additionalBytes)
         try? FileManager.default.createDirectory(at: gifDirectoryURL, withIntermediateDirectories: true)
         return gifDirectoryURL
     }
 
+    static func prepareShareDirectory() -> URL {
+        cleanIfNeeded()
+        try? FileManager.default.createDirectory(at: shareDirectoryURL, withIntermediateDirectories: true)
+        return shareDirectoryURL
+    }
+
     static func cleanIfNeeded(additionalBytes: Int64 = 0) {
         let fileManager = FileManager.default
-        let directoryURL = gifDirectoryURL
-        guard let fileURLs = try? fileManager.contentsOfDirectory(
-            at: directoryURL,
-            includingPropertiesForKeys: [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey],
-            options: [.skipsHiddenFiles]
-        ) else {
-            return
+        let fileURLs = cacheDirectories.flatMap { directoryURL in
+            (try? fileManager.contentsOfDirectory(
+                at: directoryURL,
+                includingPropertiesForKeys: [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey],
+                options: [.skipsHiddenFiles]
+            )) ?? []
         }
 
         let cacheBytes = fileURLs.reduce(Int64(0)) { total, fileURL in
@@ -188,6 +197,10 @@ enum TemporaryCacheManager {
         for fileURL in fileURLs {
             try? fileManager.removeItem(at: fileURL)
         }
+    }
+
+    private static var cacheDirectories: [URL] {
+        [gifDirectoryURL, shareDirectoryURL]
     }
 }
 

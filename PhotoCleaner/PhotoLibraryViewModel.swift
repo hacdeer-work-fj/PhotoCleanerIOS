@@ -36,8 +36,9 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject, PHPhotoLibraryCha
     @Published private(set) var activeItemID = ""
     @Published var selectedTrashIDs: Set<String> = []
     @Published var isBusy = false
-    @Published var alertMessage: String?
+    @Published var toastMessage: ToastMessage?
     @Published var infoItem: PhotoItem?
+    @Published var shareItem: PhotoItem?
     @Published private(set) var randomReturnItemID: String?
     @Published private(set) var photoInfo: PhotoInfo?
     @Published private(set) var isLoadingPhotoInfo = false
@@ -112,7 +113,10 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject, PHPhotoLibraryCha
     }
 
     func jumpToRandomVisibleItem() {
-        guard visibleItems.count > 1 else { return }
+        guard visibleItems.count > 1 else {
+            showToast("没有可跳转的内容")
+            return
+        }
         let sourceID = currentItemID
         let candidates = visibleItems.filter { $0.id != sourceID }
         guard let target = candidates.randomElement() else { return }
@@ -209,13 +213,18 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject, PHPhotoLibraryCha
             currentIndex = min(currentIndex, updatedVisibleItems.count - 1)
         }
         syncActiveItemID()
+        showToast("已放入回收站")
     }
 
     func restoreSelectedTrashItems() {
+        let restoredCount = selectedTrashIDs.count
         trashIDs.subtract(selectedTrashIDs)
         selectedTrashIDs.removeAll()
         trashStore.save(trashIDs)
         rebuildLists()
+        if restoredCount > 0 {
+            showToast("已恢复 \(restoredCount) 个项目")
+        }
     }
 
     func toggleTrashSelection(_ id: String) {
@@ -257,11 +266,53 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject, PHPhotoLibraryCha
                     self.selectedTrashIDs.subtract(ids)
                     self.trashStore.save(self.trashIDs)
                     self.loadPhotos()
+                    self.showToast("已永久删除 \(ids.count) 个项目")
                 } else {
-                    self.alertMessage = error?.localizedDescription ?? "删除失败，请稍后再试。"
+                    self.showToast(error?.localizedDescription ?? "删除失败，请稍后再试。")
                 }
             }
         }
+    }
+
+    func showShareSheetForCurrentItem() {
+        guard visibleItems.indices.contains(currentIndex) else {
+            showToast("当前没有可分享的内容")
+            return
+        }
+        shareItem = visibleItems[currentIndex]
+    }
+
+    func clearShareItem() {
+        shareItem = nil
+    }
+
+    func requestShareURL(for item: PhotoItem, completion: @escaping (URL?) -> Void) {
+        guard let resource = Self.shareResource(for: item.asset) else {
+            completion(nil)
+            return
+        }
+
+        let directoryURL = TemporaryCacheManager.prepareShareDirectory()
+        let filename = Self.safeShareFilename(resource.originalFilename, fallbackExtension: Self.fileExtension(for: resource))
+        let fileURL = directoryURL.appendingPathComponent("\(UUID().uuidString)-\(filename)")
+        try? FileManager.default.removeItem(at: fileURL)
+
+        let options = PHAssetResourceRequestOptions()
+        options.isNetworkAccessAllowed = true
+
+        PHAssetResourceManager.default().writeData(for: resource, toFile: fileURL, options: options) { error in
+            DispatchQueue.main.async {
+                if error != nil {
+                    completion(nil)
+                } else {
+                    completion(fileURL)
+                }
+            }
+        }
+    }
+
+    func clearToast() {
+        toastMessage = nil
     }
 
     func showInfo(for item: PhotoItem) {
@@ -550,6 +601,41 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject, PHPhotoLibraryCha
         randomJumpItemID = nil
         preserveRandomReturnUntil = nil
     }
+
+    private func showToast(_ text: String) {
+        toastMessage = ToastMessage(text: text)
+    }
+
+    private static func shareResource(for asset: PHAsset) -> PHAssetResource? {
+        let resources = PHAssetResource.assetResources(for: asset)
+        if asset.mediaType == .video {
+            return resources.first { $0.type == .video || $0.type == .fullSizeVideo } ?? resources.first
+        }
+
+        return resources.first { $0.type == .photo || $0.type == .fullSizePhoto } ?? resources.first
+    }
+
+    private static func fileExtension(for resource: PHAssetResource) -> String {
+        UTType(resource.uniformTypeIdentifier)?.preferredFilenameExtension ?? "dat"
+    }
+
+    private static func safeShareFilename(_ filename: String, fallbackExtension: String) -> String {
+        let invalidCharacters = CharacterSet(charactersIn: "/\\?%*|\"<>:")
+        let sanitized = filename
+            .components(separatedBy: invalidCharacters)
+            .joined(separator: "-")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if sanitized.isEmpty {
+            return "PhotoCleaner.\(fallbackExtension)"
+        }
+        return sanitized
+    }
+}
+
+struct ToastMessage: Identifiable, Equatable {
+    let id = UUID()
+    let text: String
 }
 
 enum PhotoImageRequestMode: String {
