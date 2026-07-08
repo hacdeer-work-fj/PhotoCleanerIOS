@@ -105,22 +105,16 @@ struct PhotoBrowserView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ZStack(alignment: .topLeading) {
-                    TabView(selection: Binding(
-                        get: { viewModel.currentItemID },
-                        set: { viewModel.selectVisibleItem(id: $0) }
-                    )) {
-                        ForEach(viewModel.visibleItems) { item in
-                            MediaPreviewView(
-                                item: item,
-                                activeItemID: viewModel.activeItemID,
-                                viewModel: viewModel
-                            )
-                            .padding(.horizontal, 10)
-                            .tag(item.id)
-                            .simultaneousGesture(verticalPageGesture(for: item))
-                        }
+                    if let item = currentItem {
+                        MediaPreviewView(
+                            item: item,
+                            activeItemID: viewModel.activeItemID,
+                            viewModel: viewModel
+                        )
+                        .padding(.horizontal, 10)
+                        .contentShape(Rectangle())
+                        .gesture(verticalPageGesture(for: item))
                     }
-                    .tabViewStyle(.page(indexDisplayMode: .never))
 
                     if viewModel.randomReturnItemID != nil {
                         Button {
@@ -181,6 +175,11 @@ struct PhotoBrowserView: View {
                     }
                 }
             }
+    }
+
+    private var currentItem: PhotoItem? {
+        guard viewModel.visibleItems.indices.contains(viewModel.currentIndex) else { return nil }
+        return viewModel.visibleItems[viewModel.currentIndex]
     }
 }
 
