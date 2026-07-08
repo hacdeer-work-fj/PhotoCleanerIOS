@@ -287,6 +287,8 @@ struct VideoPreviewView: View {
     @State private var duration = 0.0
     @State private var isPlaying = false
     @State private var isScrubbing = false
+    @State private var isLoadingVideo = false
+    @State private var videoLoadFailed = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -297,10 +299,24 @@ struct VideoPreviewView: View {
                         togglePlayback()
                     }
 
-                if loadedID != item.id {
+                if isLoadingVideo && loadedID != item.id {
                     ProgressView()
                         .padding(16)
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+                }
+
+                if videoLoadFailed {
+                    VStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.title2)
+                        Button("重试") {
+                            retryLoadingVideo()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .foregroundStyle(.white)
+                    .padding(16)
+                    .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 8))
                 }
 
                 if !isPlaying && loadedID == item.id {
@@ -339,16 +355,36 @@ struct VideoPreviewView: View {
     }
 
     private func loadPlayerItemIfNeeded() {
-        guard loadedID != item.id else { return }
+        guard loadedID != item.id, !isLoadingVideo else { return }
         let requestedID = item.id
+        isLoadingVideo = true
+        videoLoadFailed = false
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12) {
+            guard requestedID == item.id, loadedID != item.id, isLoadingVideo else { return }
+            isLoadingVideo = false
+            videoLoadFailed = true
+            pause()
+        }
 
         viewModel.requestPlayerItem(for: item) { playerItem in
             DispatchQueue.main.async {
                 guard requestedID == item.id else { return }
                 guard loadedID != item.id else { return }
+                isLoadingVideo = false
+
+                guard let playerItem else {
+                    videoLoadFailed = true
+                    pause()
+                    return
+                }
+
                 player.replaceCurrentItem(with: playerItem)
                 loadedID = item.id
-                duration = playerItem.flatMap { CMTimeGetSeconds($0.asset.duration) }.flatMap { $0.isFinite ? $0 : nil } ?? 0
+                duration = {
+                    let seconds = CMTimeGetSeconds(playerItem.asset.duration)
+                    return seconds.isFinite ? seconds : 0
+                }()
                 addTimeObserver()
                 schedulePlaybackUpdate()
             }
@@ -425,6 +461,8 @@ struct VideoPreviewView: View {
     private func resetPlayer() {
         pause()
         loadedID = nil
+        isLoadingVideo = false
+        videoLoadFailed = false
         currentTime = 0
         duration = 0
         player.replaceCurrentItem(with: nil)
@@ -444,6 +482,14 @@ struct VideoPreviewView: View {
             guard expectedID == item.id, isCurrentVideo else { return }
             updatePlaybackForVisibility()
         }
+    }
+
+    private func retryLoadingVideo() {
+        loadedID = nil
+        videoLoadFailed = false
+        isLoadingVideo = false
+        player.replaceCurrentItem(with: nil)
+        updatePlaybackForVisibility()
     }
 
     private var isCurrentVideo: Bool {
