@@ -28,7 +28,7 @@ struct PhotoOrGIFPreviewView: View {
     @State private var checkedID: String?
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
+        ZStack(alignment: .topLeading) {
             if let gifData {
                 GIFWebView(data: gifData)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -213,7 +213,7 @@ struct LivePhotoPreviewView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            ZStack(alignment: .topTrailing) {
+            ZStack(alignment: .topLeading) {
                 if let livePhoto {
                     LivePhotoPlayer(livePhoto: livePhoto, isPlaying: isPlaying)
                 } else {
