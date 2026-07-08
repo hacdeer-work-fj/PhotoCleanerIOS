@@ -105,16 +105,30 @@ struct PhotoBrowserView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ZStack(alignment: .topLeading) {
-                    if let item = currentItem {
-                        MediaPreviewView(
-                            item: item,
-                            activeItemID: viewModel.activeItemID,
-                            viewModel: viewModel
-                        )
-                        .padding(.horizontal, 10)
-                        .contentShape(Rectangle())
-                        .gesture(verticalPageGesture(for: item))
+                    TabView(selection: Binding(
+                        get: { viewModel.currentItemID },
+                        set: { viewModel.selectVisibleItem(id: $0) }
+                    )) {
+                        ForEach(Array(viewModel.visibleItems.enumerated()), id: \.element.id) { index, item in
+                            Group {
+                                if shouldLoadPage(at: index) {
+                                    MediaPreviewView(
+                                        item: item,
+                                        activeItemID: viewModel.activeItemID,
+                                        viewModel: viewModel
+                                    )
+                                    .id(item.id)
+                                    .padding(.horizontal, 10)
+                                    .contentShape(Rectangle())
+                                    .simultaneousGesture(verticalPageGesture(for: item))
+                                } else {
+                                    Color.clear
+                                }
+                            }
+                            .tag(item.id)
+                        }
                     }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
 
                     if viewModel.randomReturnItemID != nil {
                         Button {
@@ -177,9 +191,8 @@ struct PhotoBrowserView: View {
             }
     }
 
-    private var currentItem: PhotoItem? {
-        guard viewModel.visibleItems.indices.contains(viewModel.currentIndex) else { return nil }
-        return viewModel.visibleItems[viewModel.currentIndex]
+    private func shouldLoadPage(at index: Int) -> Bool {
+        abs(index - viewModel.currentIndex) <= 1
     }
 }
 
