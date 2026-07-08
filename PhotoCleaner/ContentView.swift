@@ -93,7 +93,7 @@ struct ContentView: View {
 struct PhotoBrowserView: View {
     @ObservedObject var viewModel: PhotoLibraryViewModel
     @Binding var showingTrash: Bool
-    @GestureState private var dragOffset: CGFloat = 0
+    @GestureState private var dragState = PageDragState.inactive
     @State private var settlingOffset: CGFloat = 0
     @State private var isSettlingPage = false
 
@@ -110,7 +110,7 @@ struct PhotoBrowserView: View {
                 ZStack(alignment: .topLeading) {
                     GeometryReader { proxy in
                         let width = proxy.size.width
-                        let effectiveOffset = dragOffset + settlingOffset
+                        let effectiveOffset = dragState.horizontalOffset + settlingOffset
 
                         ZStack {
                             ForEach(visiblePages) { page in
@@ -175,13 +175,13 @@ struct PhotoBrowserView: View {
     }
 
     private func pageGesture(width: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 28)
-            .updating($dragOffset) { value, state, _ in
+        DragGesture(minimumDistance: 8)
+            .updating($dragState) { value, state, _ in
                 guard !isSettlingPage else { return }
                 let horizontalDistance = abs(value.translation.width)
                 let verticalDistance = abs(value.translation.height)
-                let isHorizontalIntent = horizontalDistance >= verticalDistance * 1.2
-                state = isHorizontalIntent ? value.translation.width : 0
+                let isHorizontalIntent = horizontalDistance > verticalDistance || horizontalDistance > 16
+                state = isHorizontalIntent ? .horizontal(value.translation.width) : .inactive
             }
             .onEnded { value in
                 guard !isSettlingPage else { return }
@@ -204,13 +204,17 @@ struct PhotoBrowserView: View {
                     return
                 }
 
-                let isHorizontalIntent = horizontalDistance >= 55 && horizontalDistance >= verticalDistance * 1.2
+                let predictedHorizontal = value.predictedEndTranslation.width
+                let horizontalThreshold = min(max(width * 0.18, 48), 110)
+                let isHorizontalIntent = horizontalDistance >= 28 &&
+                    horizontalDistance >= verticalDistance * 0.85 &&
+                    (horizontalDistance >= horizontalThreshold || abs(predictedHorizontal) >= horizontalThreshold)
                 guard isHorizontalIntent else {
                     settle(to: 0)
                     return
                 }
 
-                if value.translation.width < 0 {
+                if predictedHorizontal < 0 {
                     movePage(direction: 1, width: width)
                 } else {
                     movePage(direction: -1, width: width)
@@ -272,6 +276,20 @@ private struct BrowserPage: Identifiable {
 private extension Array {
     subscript(safe index: Index) -> Element? {
         indices.contains(index) ? self[index] : nil
+    }
+}
+
+private enum PageDragState: Equatable {
+    case inactive
+    case horizontal(CGFloat)
+
+    var horizontalOffset: CGFloat {
+        switch self {
+        case .inactive:
+            return 0
+        case .horizontal(let offset):
+            return offset
+        }
     }
 }
 
