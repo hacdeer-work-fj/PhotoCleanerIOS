@@ -355,12 +355,16 @@ struct VideoPreviewView: View {
                 }
 
                 player.replaceCurrentItem(with: playerItem)
+                player.automaticallyWaitsToMinimizeStalling = false
                 loadedID = item.id
                 duration = {
                     let seconds = CMTimeGetSeconds(playerItem.asset.duration)
                     return seconds.isFinite ? seconds : 0
                 }()
                 addTimeObserver()
+                if isCurrentVideo {
+                    play()
+                }
                 schedulePlaybackUpdate()
             }
         }
@@ -390,6 +394,10 @@ struct VideoPreviewView: View {
     }
 
     private func play() {
+        guard player.currentItem != nil else {
+            isPlaying = false
+            return
+        }
         player.playImmediately(atRate: 1.0)
         isPlaying = true
     }

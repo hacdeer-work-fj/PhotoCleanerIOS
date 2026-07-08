@@ -109,22 +109,16 @@ struct PhotoBrowserView: View {
                         get: { viewModel.currentItemID },
                         set: { viewModel.selectVisibleItem(id: $0) }
                     )) {
-                        ForEach(Array(viewModel.visibleItems.enumerated()), id: \.element.id) { index, item in
-                            Group {
-                                if shouldLoadPage(at: index) {
-                                    MediaPreviewView(
-                                        item: item,
-                                        activeItemID: viewModel.activeItemID,
-                                        viewModel: viewModel
-                                    )
-                                    .id(item.id)
-                                    .padding(.horizontal, 10)
-                                    .contentShape(Rectangle())
-                                    .simultaneousGesture(verticalPageGesture(for: item))
-                                } else {
-                                    Color.clear
-                                }
-                            }
+                        ForEach(viewModel.visibleItems) { item in
+                            MediaPreviewView(
+                                item: item,
+                                activeItemID: viewModel.activeItemID,
+                                viewModel: viewModel
+                            )
+                            .id(item.id)
+                            .padding(.horizontal, 10)
+                            .contentShape(Rectangle())
+                            .simultaneousGesture(verticalPageGesture(for: item))
                             .tag(item.id)
                         }
                     }
@@ -189,10 +183,6 @@ struct PhotoBrowserView: View {
                     }
                 }
             }
-    }
-
-    private func shouldLoadPage(at index: Int) -> Bool {
-        abs(index - viewModel.currentIndex) <= 1
     }
 }
 
