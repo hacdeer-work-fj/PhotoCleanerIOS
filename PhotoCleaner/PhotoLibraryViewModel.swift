@@ -56,7 +56,6 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject, PHPhotoLibraryCha
     private let trashStore: TrashStore
     private var trashIDs: Set<String>
     private var randomJumpItemID: String?
-    private var preserveRandomReturnUntil: Date?
 
     override init() {
         self.authorizationStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
@@ -100,12 +99,7 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject, PHPhotoLibraryCha
 
     func selectVisibleItem(at index: Int, clearRandomReturnIfNeeded: Bool = true) {
         guard visibleItems.indices.contains(index) else { return }
-        let id = visibleItems[index].id
-        let shouldPreserveRandomReturn = preserveRandomReturnUntil.map { Date() < $0 } ?? false
-        if clearRandomReturnIfNeeded,
-           !shouldPreserveRandomReturn,
-           randomJumpItemID != nil,
-           id != randomJumpItemID {
+        if clearRandomReturnIfNeeded {
             clearRandomReturn()
         }
         currentIndex = index
@@ -123,7 +117,6 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject, PHPhotoLibraryCha
 
         randomReturnItemID = sourceID
         randomJumpItemID = target.id
-        preserveRandomReturnUntil = Date().addingTimeInterval(0.8)
         selectVisibleItem(id: target.id, clearRandomReturnIfNeeded: false)
     }
 
@@ -296,7 +289,8 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject, PHPhotoLibraryCha
             if let url {
                 completion(url)
             } else {
-                self?.exportShareResource(for: item, completion: completion)
+                self?.showToast("系统未提供源文件，无法按源文件分享")
+                completion(nil)
             }
         }
     }
@@ -323,31 +317,9 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject, PHPhotoLibraryCha
                     completion(urlAsset.url)
                 }
             } else {
-                self?.exportShareResource(for: item, completion: completion)
-            }
-        }
-    }
-
-    private func exportShareResource(for item: PhotoItem, completion: @escaping (URL?) -> Void) {
-        guard let resource = Self.shareResource(for: item.asset) else {
-            completion(nil)
-            return
-        }
-
-        let directoryURL = TemporaryCacheManager.prepareShareDirectory()
-        let filename = Self.safeShareFilename(resource.originalFilename, fallbackExtension: Self.fileExtension(for: resource))
-        let fileURL = directoryURL.appendingPathComponent("\(UUID().uuidString)-\(filename)")
-        try? FileManager.default.removeItem(at: fileURL)
-
-        let options = PHAssetResourceRequestOptions()
-        options.isNetworkAccessAllowed = true
-
-        PHAssetResourceManager.default().writeData(for: resource, toFile: fileURL, options: options) { error in
-            DispatchQueue.main.async {
-                if error != nil {
+                DispatchQueue.main.async {
+                    self?.showToast("系统未提供源文件，无法按源文件分享")
                     completion(nil)
-                } else {
-                    completion(fileURL)
                 }
             }
         }
@@ -641,38 +613,12 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject, PHPhotoLibraryCha
     private func clearRandomReturn() {
         randomReturnItemID = nil
         randomJumpItemID = nil
-        preserveRandomReturnUntil = nil
     }
 
     private func showToast(_ text: String) {
         toastMessage = ToastMessage(text: text)
     }
 
-    private static func shareResource(for asset: PHAsset) -> PHAssetResource? {
-        let resources = PHAssetResource.assetResources(for: asset)
-        if asset.mediaType == .video {
-            return resources.first { $0.type == .video || $0.type == .fullSizeVideo } ?? resources.first
-        }
-
-        return resources.first { $0.type == .photo || $0.type == .fullSizePhoto } ?? resources.first
-    }
-
-    private static func fileExtension(for resource: PHAssetResource) -> String {
-        UTType(resource.uniformTypeIdentifier)?.preferredFilenameExtension ?? "dat"
-    }
-
-    private static func safeShareFilename(_ filename: String, fallbackExtension: String) -> String {
-        let invalidCharacters = CharacterSet(charactersIn: "/\\?%*|\"<>:")
-        let sanitized = filename
-            .components(separatedBy: invalidCharacters)
-            .joined(separator: "-")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if sanitized.isEmpty {
-            return "PhotoCleaner.\(fallbackExtension)"
-        }
-        return sanitized
-    }
 }
 
 struct ToastMessage: Identifiable, Equatable {

@@ -152,20 +152,10 @@ enum TemporaryCacheManager {
         rootDirectoryURL.appendingPathComponent("GIFs", isDirectory: true)
     }
 
-    static var shareDirectoryURL: URL {
-        rootDirectoryURL.appendingPathComponent("Shares", isDirectory: true)
-    }
-
     static func prepareGIFDirectory(additionalBytes: Int64 = 0) -> URL {
         cleanIfNeeded(additionalBytes: additionalBytes)
         try? FileManager.default.createDirectory(at: gifDirectoryURL, withIntermediateDirectories: true)
         return gifDirectoryURL
-    }
-
-    static func prepareShareDirectory() -> URL {
-        cleanIfNeeded()
-        try? FileManager.default.createDirectory(at: shareDirectoryURL, withIntermediateDirectories: true)
-        return shareDirectoryURL
     }
 
     static func cleanIfNeeded(additionalBytes: Int64 = 0) {
@@ -192,7 +182,7 @@ enum TemporaryCacheManager {
     }
 
     private static var cacheDirectories: [URL] {
-        [gifDirectoryURL, shareDirectoryURL]
+        [gifDirectoryURL]
     }
 }
 
