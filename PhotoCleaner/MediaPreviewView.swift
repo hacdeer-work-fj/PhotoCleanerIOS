@@ -36,15 +36,6 @@ struct PhotoOrGIFPreviewView: View {
                 PhotoImageView(item: item, contentMode: .fit, viewModel: viewModel)
             }
 
-            if gifData != nil {
-                Label("GIF", systemImage: "repeat")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(.black.opacity(0.42), in: Capsule())
-                    .padding(10)
-            }
         }
         .onAppear {
             loadGIFDataIfNeeded()
@@ -213,20 +204,13 @@ struct LivePhotoPreviewView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            ZStack(alignment: .topLeading) {
+            ZStack {
                 if let livePhoto {
                     LivePhotoPlayer(livePhoto: livePhoto, isPlaying: isPlaying)
                 } else {
                     PhotoImageView(item: item, contentMode: .fit, viewModel: viewModel)
                 }
 
-                Label("实况", systemImage: "livephoto")
-                    .font(.caption2.weight(.semibold))
-                    .labelStyle(.iconOnly)
-                    .foregroundStyle(.white)
-                    .padding(8)
-                    .background(.black.opacity(0.42), in: Circle())
-                    .padding(10)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .contentShape(Rectangle())
