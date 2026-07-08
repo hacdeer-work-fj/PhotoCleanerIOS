@@ -287,6 +287,48 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject, PHPhotoLibraryCha
     }
 
     func requestShareURL(for item: PhotoItem, completion: @escaping (URL?) -> Void) {
+        if item.asset.mediaType == .video {
+            requestVideoShareURL(for: item, completion: completion)
+            return
+        }
+
+        requestImageShareURL(for: item) { [weak self] url in
+            if let url {
+                completion(url)
+            } else {
+                self?.exportShareResource(for: item, completion: completion)
+            }
+        }
+    }
+
+    private func requestImageShareURL(for item: PhotoItem, completion: @escaping (URL?) -> Void) {
+        let options = PHContentEditingInputRequestOptions()
+        options.isNetworkAccessAllowed = true
+
+        item.asset.requestContentEditingInput(with: options) { input, _ in
+            DispatchQueue.main.async {
+                completion(input?.fullSizeImageURL)
+            }
+        }
+    }
+
+    private func requestVideoShareURL(for item: PhotoItem, completion: @escaping (URL?) -> Void) {
+        let options = PHVideoRequestOptions()
+        options.deliveryMode = .automatic
+        options.isNetworkAccessAllowed = true
+
+        imageManager.requestAVAsset(forVideo: item.asset, options: options) { [weak self] asset, _, _ in
+            if let urlAsset = asset as? AVURLAsset {
+                DispatchQueue.main.async {
+                    completion(urlAsset.url)
+                }
+            } else {
+                self?.exportShareResource(for: item, completion: completion)
+            }
+        }
+    }
+
+    private func exportShareResource(for item: PhotoItem, completion: @escaping (URL?) -> Void) {
         guard let resource = Self.shareResource(for: item.asset) else {
             completion(nil)
             return
