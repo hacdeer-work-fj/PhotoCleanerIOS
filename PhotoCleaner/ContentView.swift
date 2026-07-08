@@ -93,9 +93,6 @@ struct ContentView: View {
 struct PhotoBrowserView: View {
     @ObservedObject var viewModel: PhotoLibraryViewModel
     @Binding var showingTrash: Bool
-    @GestureState private var dragState = PageDragState.inactive
-    @State private var settlingOffset: CGFloat = 0
-    @State private var isSettlingPage = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -108,27 +105,22 @@ struct PhotoBrowserView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ZStack(alignment: .topLeading) {
-                    GeometryReader { proxy in
-                        let width = proxy.size.width
-                        let effectiveOffset = dragState.horizontalOffset + settlingOffset
-
-                        ZStack {
-                            ForEach(visiblePages) { page in
-                                MediaPreviewView(
-                                    item: page.item,
-                                    activeItemID: viewModel.activeItemID,
-                                    viewModel: viewModel
-                                )
-                                .padding(.horizontal, 10)
-                                .frame(width: width, height: proxy.size.height)
-                                .offset(x: CGFloat(page.index - viewModel.currentIndex) * width + effectiveOffset)
-                            }
+                    TabView(selection: Binding(
+                        get: { viewModel.currentItemID },
+                        set: { viewModel.selectVisibleItem(id: $0) }
+                    )) {
+                        ForEach(viewModel.visibleItems) { item in
+                            MediaPreviewView(
+                                item: item,
+                                activeItemID: viewModel.activeItemID,
+                                viewModel: viewModel
+                            )
+                            .padding(.horizontal, 10)
+                            .tag(item.id)
+                            .simultaneousGesture(verticalPageGesture(for: item))
                         }
-                        .frame(width: width, height: proxy.size.height)
-                        .clipped()
-                        .contentShape(Rectangle())
-                        .gesture(pageGesture(width: width))
                     }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
 
                     if viewModel.randomReturnItemID != nil {
                         Button {
@@ -174,122 +166,21 @@ struct PhotoBrowserView: View {
         }
     }
 
-    private func pageGesture(width: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 8)
-            .updating($dragState) { value, state, _ in
-                guard !isSettlingPage else { return }
-                let horizontalDistance = abs(value.translation.width)
-                let verticalDistance = abs(value.translation.height)
-                let isHorizontalIntent = horizontalDistance > verticalDistance || horizontalDistance > 16
-                state = isHorizontalIntent ? .horizontal(value.translation.width) : .inactive
-            }
+    private func verticalPageGesture(for item: PhotoItem) -> some Gesture {
+        DragGesture(minimumDistance: 36)
             .onEnded { value in
-                guard !isSettlingPage else { return }
-
                 let horizontalDistance = abs(value.translation.width)
                 let verticalDistance = abs(value.translation.height)
                 let isVerticalIntent = verticalDistance >= 90 && verticalDistance >= horizontalDistance * 1.8
 
                 if isVerticalIntent && value.translation.height < 0 {
-                    if let item = viewModel.visibleItems[safe: viewModel.currentIndex] {
-                        viewModel.showInfo(for: item)
-                    }
-                    return
-                }
-
-                if isVerticalIntent && value.translation.height > 0 {
+                    viewModel.showInfo(for: item)
+                } else if isVerticalIntent && value.translation.height > 0 {
                     withAnimation(.easeInOut(duration: 0.18)) {
                         viewModel.jumpToRandomVisibleItem()
                     }
-                    return
-                }
-
-                let predictedHorizontal = value.predictedEndTranslation.width
-                let horizontalThreshold = min(max(width * 0.18, 48), 110)
-                let isHorizontalIntent = horizontalDistance >= 28 &&
-                    horizontalDistance >= verticalDistance * 0.85 &&
-                    (horizontalDistance >= horizontalThreshold || abs(predictedHorizontal) >= horizontalThreshold)
-                guard isHorizontalIntent else {
-                    settle(to: 0)
-                    return
-                }
-
-                if predictedHorizontal < 0 {
-                    movePage(direction: 1, width: width)
-                } else {
-                    movePage(direction: -1, width: width)
                 }
             }
-    }
-
-    private func movePage(direction: Int, width: CGFloat) {
-        let targetIndex = viewModel.currentIndex + direction
-        guard viewModel.visibleItems.indices.contains(targetIndex) else {
-            settle(to: 0)
-            return
-        }
-
-        isSettlingPage = true
-        withAnimation(.easeOut(duration: 0.18)) {
-            settlingOffset = direction > 0 ? -width : width
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-            viewModel.selectVisibleItem(at: targetIndex)
-            settlingOffset = 0
-            isSettlingPage = false
-        }
-    }
-
-    private func settle(to offset: CGFloat) {
-        withAnimation(.easeOut(duration: 0.16)) {
-            settlingOffset = offset
-        }
-
-        if offset == 0 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
-                settlingOffset = 0
-            }
-        }
-    }
-
-    private var visiblePages: [BrowserPage] {
-        guard !viewModel.visibleItems.isEmpty else { return [] }
-        let lowerBound = max(viewModel.currentIndex - 1, 0)
-        let upperBound = min(viewModel.currentIndex + 1, viewModel.visibleItems.count - 1)
-
-        return (lowerBound...upperBound).map { index in
-            BrowserPage(index: index, item: viewModel.visibleItems[index])
-        }
-    }
-}
-
-private struct BrowserPage: Identifiable {
-    let index: Int
-    let item: PhotoItem
-
-    var id: String {
-        item.id
-    }
-}
-
-private extension Array {
-    subscript(safe index: Index) -> Element? {
-        indices.contains(index) ? self[index] : nil
-    }
-}
-
-private enum PageDragState: Equatable {
-    case inactive
-    case horizontal(CGFloat)
-
-    var horizontalOffset: CGFloat {
-        switch self {
-        case .inactive:
-            return 0
-        case .horizontal(let offset):
-            return offset
-        }
     }
 }
 
