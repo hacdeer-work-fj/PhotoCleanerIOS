@@ -155,13 +155,14 @@ struct GIFWebView: UIViewRepresentable {
 
 enum TemporaryCacheManager {
     private static let maxCacheBytes: Int64 = 1_073_741_824
+    private static let rootDirectoryURL = FileManager.default.temporaryDirectory.appendingPathComponent("PhotoCleanerCache", isDirectory: true)
 
     static var gifDirectoryURL: URL {
-        FileManager.default.temporaryDirectory.appendingPathComponent("PhotoCleanerGIFs", isDirectory: true)
+        rootDirectoryURL.appendingPathComponent("GIFs", isDirectory: true)
     }
 
     static var shareDirectoryURL: URL {
-        FileManager.default.temporaryDirectory.appendingPathComponent("PhotoCleanerShares", isDirectory: true)
+        rootDirectoryURL.appendingPathComponent("Shares", isDirectory: true)
     }
 
     static func prepareGIFDirectory(additionalBytes: Int64 = 0) -> URL {
