@@ -1,7 +1,6 @@
 import Photos
 import MapKit
 import SwiftUI
-import UIKit
 
 struct ContentView: View {
     @StateObject private var viewModel = PhotoLibraryViewModel()
@@ -36,11 +35,6 @@ struct ContentView: View {
             }) { item in
                 PhotoInfoView(item: item, viewModel: viewModel)
                     .presentationDetents([.medium, .large])
-            }
-            .sheet(item: $viewModel.shareItem, onDismiss: {
-                viewModel.clearShareItem()
-            }) { item in
-                ShareSheetView(item: item, viewModel: viewModel)
             }
             .confirmationDialog(
                 "永久删除选中的照片？",
@@ -142,20 +136,6 @@ struct PhotoBrowserView: View {
                         .padding(.top, 12)
                     }
 
-                    Button {
-                        viewModel.showShareSheetForCurrentItem()
-                    } label: {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.primary)
-                            .frame(width: 40, height: 40)
-                            .background(.regularMaterial, in: Circle())
-                            .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.trailing, 16)
-                    .padding(.top, 12)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 }
 
                 Text("\(viewModel.currentIndex + 1) / \(viewModel.visibleItems.count)")
@@ -324,58 +304,6 @@ struct ToastView: View {
             .background(.black.opacity(0.78), in: Capsule())
             .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
     }
-}
-
-struct ShareSheetView: View {
-    let item: PhotoItem
-    @ObservedObject var viewModel: PhotoLibraryViewModel
-    @State private var shareURL: URL?
-    @State private var didFail = false
-
-    var body: some View {
-        Group {
-            if let shareURL {
-                ActivityView(activityItems: [shareURL])
-                    .ignoresSafeArea()
-            } else if didFail {
-                EmptyStateView(
-                    title: "无法分享",
-                    systemImage: "square.and.arrow.up",
-                    message: "当前内容暂时无法导出给系统分享。"
-                )
-            } else {
-                ProgressView("正在准备分享")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-        .onAppear {
-            prepareShareItem()
-        }
-    }
-
-    private func prepareShareItem() {
-        guard shareURL == nil, !didFail else { return }
-
-        viewModel.requestShareURL(for: item) { url in
-            if let url {
-                shareURL = url
-            } else {
-                didFail = true
-                viewModel.clearShareItem()
-                viewModel.toastMessage = ToastMessage(text: "分享失败，请稍后再试")
-            }
-        }
-    }
-}
-
-struct ActivityView: UIViewControllerRepresentable {
-    let activityItems: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 struct PermissionDeniedView: View {

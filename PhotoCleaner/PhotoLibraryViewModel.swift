@@ -38,7 +38,6 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject, PHPhotoLibraryCha
     @Published var isBusy = false
     @Published var toastMessage: ToastMessage?
     @Published var infoItem: PhotoItem?
-    @Published var shareItem: PhotoItem?
     @Published private(set) var randomReturnItemID: String?
     @Published private(set) var photoInfo: PhotoInfo?
     @Published private(set) var isLoadingPhotoInfo = false
@@ -262,64 +261,6 @@ final class PhotoLibraryViewModel: NSObject, ObservableObject, PHPhotoLibraryCha
                     self.showToast("已永久删除 \(ids.count) 个项目")
                 } else {
                     self.showToast(error?.localizedDescription ?? "删除失败，请稍后再试。")
-                }
-            }
-        }
-    }
-
-    func showShareSheetForCurrentItem() {
-        guard visibleItems.indices.contains(currentIndex) else {
-            showToast("当前没有可分享的内容")
-            return
-        }
-        shareItem = visibleItems[currentIndex]
-    }
-
-    func clearShareItem() {
-        shareItem = nil
-    }
-
-    func requestShareURL(for item: PhotoItem, completion: @escaping (URL?) -> Void) {
-        if item.asset.mediaType == .video {
-            requestVideoShareURL(for: item, completion: completion)
-            return
-        }
-
-        requestImageShareURL(for: item) { [weak self] url in
-            if let url {
-                completion(url)
-            } else {
-                self?.showToast("系统未提供源文件，无法按源文件分享")
-                completion(nil)
-            }
-        }
-    }
-
-    private func requestImageShareURL(for item: PhotoItem, completion: @escaping (URL?) -> Void) {
-        let options = PHContentEditingInputRequestOptions()
-        options.isNetworkAccessAllowed = true
-
-        item.asset.requestContentEditingInput(with: options) { input, _ in
-            DispatchQueue.main.async {
-                completion(input?.fullSizeImageURL)
-            }
-        }
-    }
-
-    private func requestVideoShareURL(for item: PhotoItem, completion: @escaping (URL?) -> Void) {
-        let options = PHVideoRequestOptions()
-        options.deliveryMode = .automatic
-        options.isNetworkAccessAllowed = true
-
-        imageManager.requestAVAsset(forVideo: item.asset, options: options) { [weak self] asset, _, _ in
-            if let urlAsset = asset as? AVURLAsset {
-                DispatchQueue.main.async {
-                    completion(urlAsset.url)
-                }
-            } else {
-                DispatchQueue.main.async {
-                    self?.showToast("系统未提供源文件，无法按源文件分享")
-                    completion(nil)
                 }
             }
         }
